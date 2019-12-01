@@ -1,6 +1,8 @@
 import abc
 import asyncio
 from abc import abstractmethod
+from asyncio import AbstractEventLoop
+from logging import Logger
 
 from .context import Context
 
@@ -8,14 +10,13 @@ from .context import Context
 class Prosumer(metaclass=abc.ABCMeta):
     tasks = set()
     max_concurrent = 10
+    context: Context
+    logger: Logger
+    loop: AbstractEventLoop
+    queue: asyncio.Queue
 
-    def __init__(self, data, context: Context):
+    def __init__(self, data):
         self.data = data
-        self.context = context
-        self.logger = context.logger
-        self.loop = context.loop
-        self.context.prosumers.add(self)
-        self.queue = context.queues.new(self.name)
 
     @property
     @abstractmethod
@@ -61,3 +62,10 @@ class Prosumer(metaclass=abc.ABCMeta):
 
     def __str__(self):
         return self.name
+
+    def initialize(self, context):
+        self.context = context
+        self.logger = context.logger
+        self.loop = context.loop
+        self.context.prosumers.add(self)
+        self.queue = context.queues.new(self.name)

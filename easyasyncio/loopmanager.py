@@ -55,9 +55,10 @@ class LoopManager:
             await asyncio.gather(*self.tasks)
 
     def add_tasks(self, *prosumers: 'Prosumer'):
-        for obj in prosumers:
-            assert isinstance(obj, Prosumer)
-            t = self.loop.create_task(obj.run())
+        for prosumer in prosumers:
+            assert isinstance(prosumer, Prosumer)
+            prosumer.initialize(self.context)
+            t = self.loop.create_task(prosumer.run())
             self.tasks.add(t)
 
     def stop(self):

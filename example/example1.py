@@ -7,8 +7,8 @@ from easyasyncio import Prosumer, LoopManager
 class PrintNumbersProducer(Prosumer):
     """print numbers asynchronously"""
 
-    def __init__(self, data: int, context):
-        super().__init__(data, context)
+    def __init__(self, data: int):
+        super().__init__(data)
 
     async def fill_queue(self):
         """override this abstract class to fill the queue"""
@@ -33,5 +33,5 @@ class PrintNumbersProducer(Prosumer):
 
 
 manager = LoopManager()
-manager.add_tasks(PrintNumbersProducer(5, manager.context))
+manager.add_tasks(PrintNumbersProducer(5))
 manager.start()

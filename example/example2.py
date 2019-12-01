@@ -5,8 +5,8 @@ from easyasyncio.constants import Constants
 class WithSessionProsumer(Prosumer):
     """requests websites asynchronously"""
 
-    def __init__(self, data: int, context):
-        super().__init__(data, context)
+    def __init__(self, data: int):
+        super().__init__(data)
 
     async def fill_queue(self):
         """override this abstract class to fill the queue"""
@@ -34,6 +34,6 @@ class WithSessionProsumer(Prosumer):
 
 
 manager = LoopManager()
-manager.add_tasks(WithSessionProsumer(5, manager.context))
+manager.add_tasks(WithSessionProsumer(5))
 
 manager.start(use_session=True)
