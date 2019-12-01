@@ -5,6 +5,8 @@ from .context import Context
 from .loopmanager import LoopManager
 from .prosumer import Prosumer
 from .queuemanager import QueueManager
+from .datamanager import DataManager
+from .constants import Constants
 from .stats import Stats
 
 __all__ = [
@@ -12,6 +14,8 @@ __all__ = [
     'LoopManager',
     'Prosumer',
     'QueueManager',
+    'DataManager',
+    'Constants',
     'Stats',
-    'logger'
+    'logger',
 ]
