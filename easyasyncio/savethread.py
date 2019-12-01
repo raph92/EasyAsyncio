@@ -6,7 +6,7 @@ from easyasyncio import logger
 from .context import Context
 
 
-class AutoSave(Thread):
+class SaveThread(Thread):
     def __init__(self, context: Context) -> None:
         super().__init__()
         self.context = context
