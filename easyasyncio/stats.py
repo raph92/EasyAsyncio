@@ -1,8 +1,12 @@
 import time
 from collections import Counter
 from threading import Thread
+from typing import TYPE_CHECKING
 
-from easyasyncio import logger, Context
+from easyasyncio import logger
+
+if TYPE_CHECKING:
+    from .context import Context
 
 
 class Stats(Counter):
@@ -45,7 +49,7 @@ class StatsThread(Thread):
     name = 'StatsThread'
     interval = 15
 
-    def __init__(self, context: Context) -> None:
+    def __init__(self, context: 'Context') -> None:
         super().__init__()
         self.context = context
 
