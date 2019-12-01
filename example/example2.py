@@ -1,5 +1,4 @@
-from easyasyncio import Prosumer, LoopManager
-from easyasyncio.constants import Constants
+from easyasyncio import Prosumer, LoopManager, Constants
 
 
 class WithSessionProsumer(Prosumer):
