@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='easyasyncio',
-    version='0.0.1',
+    version='0.1.0',
     packages=['easyasyncio'],
     url='https://github.com/RaphaelNanje/easyasyncio.git',
     license='MIT',
@@ -10,6 +10,7 @@ setup(
     author_email='rtnanje@gmail.com',
     description='A library that makes asyncio simple',
     install_requires=[
-        'logzero'
+        'logzero',
+        'aiohttp'
     ]
 )

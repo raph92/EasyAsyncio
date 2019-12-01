@@ -4,6 +4,8 @@ import time
 from asyncio import Task
 from typing import Set
 
+from aiohttp import ClientSession
+
 from easyasyncio import logger
 from .context import Context
 from .prosumer import Prosumer
@@ -16,6 +18,7 @@ class LoopManager:
     """
     running = True
     tasks: Set[Task] = set()
+    session: ClientSession
 
     def __init__(self):
         self.loop = asyncio.get_event_loop()
@@ -23,13 +26,13 @@ class LoopManager:
         signal.signal(signal.SIGINT, self.cancel_all_tasks)
         signal.signal(signal.SIGTERM, self.cancel_all_tasks)
 
-    def start(self, start_function: callable = None):
+    def start(self, use_session=False):
         try:
             self.context.stats.start_time = time.time()
-            if start_function:
-                self.loop.run_until_complete(start_function())
+            if use_session:
+                self.loop.run_until_complete(self.use_with_session())
             else:
-                self.loop.run_until_complete(self._run())
+                self.loop.run_until_complete(asyncio.gather(*self.tasks))
             logger.info('All tasks have completed!')
         except asyncio.CancelledError:
             print('All tasks have been canceled')
@@ -39,8 +42,17 @@ class LoopManager:
             self.context.stats._end_time = time.time()
             self.stop()
 
-    async def _run(self):
-        await asyncio.gather(*self.tasks)
+    # async def _run(self, start_function, use_session):
+    #     if use_session:
+    #         if start_function:
+    #             self.loop.run_until_complete(start_function())
+    #         else:
+    #             self.loop.run_until_complete(asyncio.gather(*self.tasks))
+
+    async def use_with_session(self):
+        async with ClientSession() as session:
+            self.context.session = session
+            await asyncio.gather(*self.tasks)
 
     def add_tasks(self, *prosumers: 'Prosumer'):
         for obj in prosumers:

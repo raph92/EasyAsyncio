@@ -3,6 +3,7 @@ from asyncio import AbstractEventLoop
 from typing import TYPE_CHECKING, Set
 
 import logzero
+from aiohttp import ClientSession
 
 from .queuemanager import QueueManager
 from .settings import Settings
@@ -22,6 +23,7 @@ class Context:
     loop: AbstractEventLoop
     prosumers: 'Set[Prosumer]' = set()
     loop_manager: 'LoopManager'
+    session: ClientSession
 
     def __init__(self, loop_manager) -> None:
         self.stats = Stats(self)
