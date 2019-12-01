@@ -2,7 +2,7 @@ import time
 from collections import Counter
 from threading import Thread
 
-from easyasyncio import logger
+from easyasyncio import logger, Context
 
 
 class Stats(Counter):
@@ -43,14 +43,15 @@ class Stats(Counter):
 
 class StatsThread(Thread):
     name = 'StatsThread'
+    interval = 15
 
-    def __init__(self, context) -> None:
+    def __init__(self, context: Context) -> None:
         super().__init__()
         self.context = context
 
     def run(self) -> None:
         while self.context.running:
-            time.sleep(self.context.settings.debug_stats_interval)
-            if not self.context.running:
+            time.sleep(self.interval)
+            if not self.context.loop_manager.running:
                 break
             logger.debug(self.context.stats.get_stats_string())

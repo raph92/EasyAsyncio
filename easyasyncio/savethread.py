@@ -7,6 +7,9 @@ from .context import Context
 
 
 class SaveThread(Thread):
+    name = 'SaveThread'
+    interval = 10
+
     def __init__(self, context: Context) -> None:
         super().__init__()
         self.context = context
@@ -14,8 +17,8 @@ class SaveThread(Thread):
     def run(self) -> None:
         logger.debug('save thread starting...')
         while self.context.running:
-            time.sleep(self.context.settings.auto_save_interval)
-            if not self.context.running:
+            time.sleep(self.interval)
+            if not self.context.loop_manager.running:
                 break
             self.save_func()
 
