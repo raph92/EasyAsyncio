@@ -7,9 +7,6 @@ from easyasyncio import Prosumer, LoopManager, Consumer
 class ConsumerNumberExample(Consumer):
     """print numbers asynchronously"""
 
-    async def worker(self):
-        return await super().worker()
-
     async def work(self, number):
         """this logic gets called after an object is retrieved from the queue"""
         sleep_time = random.randint(1, 3)
@@ -31,7 +28,7 @@ class Producer(Prosumer):
 
     async def fill_queue(self):
         for i in range(self.data):
-            self.queue.put_nowait(i)
+            await self.queue.put(i)
 
     async def work(self, num):
         await self.context.queues['consume_number'].put(num)
@@ -44,6 +41,6 @@ class Producer(Prosumer):
 manager = LoopManager()
 consumer = ConsumerNumberExample()
 producer = Producer(30)
-manager.add_tasks(consumer)
+manager.add_tasks(consumer, producer)
 
 manager.start()
