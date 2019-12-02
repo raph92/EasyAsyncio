@@ -7,15 +7,14 @@ from typing import Set
 from aiohttp import ClientSession
 
 from easyasyncio import logger
-from easyasyncio.consumer import Consumer
 from .baseasyncioobject import BaseAsyncioObject
+from .consumer import Consumer
 from .context import Context
 
 
 class LoopManager:
     """
-    The vision is that this class will handle the top level task gathering, run_until_complete,
-    etc
+    The vision is that this class will handle the top level task gathering, run_until_complete, etc
     """
     running = True
     tasks: Set[Task] = set()
@@ -36,7 +35,7 @@ class LoopManager:
                 self.loop.run_until_complete(asyncio.gather(*self.tasks))
             logger.info('All tasks have completed!')
         except asyncio.CancelledError:
-            print('All tasks have been canceled')
+            logger.info('All tasks have been canceled')
         except Exception as e:
             logger.exception(e)
         finally:
@@ -48,8 +47,8 @@ class LoopManager:
             self.context.session = session
             await asyncio.gather(*self.tasks)
 
-    def add_tasks(self, *prosumers: 'BaseAsyncioObject'):
-        for prosumer in prosumers:
+    def add_tasks(self, *asyncio_objects: 'BaseAsyncioObject'):
+        for prosumer in asyncio_objects:
             assert isinstance(prosumer, BaseAsyncioObject)
             prosumer.initialize(self.context)
             t = self.loop.create_task(prosumer.run())
@@ -62,7 +61,6 @@ class LoopManager:
         self.loop.close()
 
     def cancel_all_tasks(self, _, _2):
-        self.running = False
         logger.info('Cancelling all tasks, this may take a moment...')
         logger.warn('The program may not close, this is a known bug and I am working on a fix')
         for worker in self.context.workers:
@@ -71,4 +69,3 @@ class LoopManager:
                     worker.queue.put_nowait(None)
         for task in asyncio.all_tasks():
             task.cancel()
-

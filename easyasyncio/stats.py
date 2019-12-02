@@ -32,7 +32,7 @@ class Stats(Counter):
             string += f'\t\t\t    {k}\'s processed per second: {v / self.elapsed_time}\n'
         for p in self.context.workers:
             string += f'\t\t\t    {p.name} queue: {p.queue.qsize()} items left\n'
-            string += f'\t\t\t    {p.name} workers: {len(p.workers)}\n'
+            string += f'\t\t\t    {p.name} workers: {p.max_concurrent}\n'
         return string.rstrip()
 
     def get_stats_string(self):

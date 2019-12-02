@@ -19,8 +19,7 @@ class Context:
     """The purpose of this class is to access all important objects from one place"""
     settings = Settings()
     logger: logging.Logger = logger
-    running = True
-    queues = QueueManager()
+    queues: QueueManager
     loop: AbstractEventLoop
     workers: 'Set[BaseAsyncioObject]' = set()
     loop_manager: 'LoopManager'
@@ -31,3 +30,8 @@ class Context:
         self.stats = Stats(self)
         self.loop_manager = loop_manager
         self.loop = self.loop_manager.loop
+        self.queues = QueueManager(self)
+
+    @property
+    def running(self):
+        return self.loop_manager.running

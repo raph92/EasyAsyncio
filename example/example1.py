@@ -1,10 +1,10 @@
 import asyncio
 import random
 
-from easyasyncio import Prosumer, LoopManager
+from easyasyncio import Producer, LoopManager
 
 
-class PrintNumbersProducer(Prosumer):
+class PrintNumbersProducer(Producer):
     """print numbers asynchronously"""
 
     def __init__(self, data: int):

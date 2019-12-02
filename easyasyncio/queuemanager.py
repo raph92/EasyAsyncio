@@ -1,16 +1,26 @@
 from asyncio import Queue
 from collections import UserDict
-from typing import Dict
+from typing import Dict, TYPE_CHECKING
 
-from easyasyncio import logger
+if TYPE_CHECKING:
+    from .context import Context
 
 
-class QueueManager(UserDict, Dict[str, Queue]):
+class QueueManager(UserDict, Dict[str, 'Queue']):
+    """easy access queues for all producers and consumers"""
 
-    def __init__(self, **kwargs: dict):
+    def __init__(self, context: 'Context', **kwargs: dict):
         super().__init__(**kwargs)
+        self.context = context
+        self.logger = context.logger
+
+    def __getitem__(self, key: str) -> 'Queue':
+        if key not in self:
+            self[key] = Queue()
+        return super().__getitem__(key)
 
     def new(self, name):
-        logger.info('Creating new queue: %s...', name)
-        self[name] = Queue()
-        return self[name]
+        self.logger.info('Creating new queue: %s...', name)
+        queue = Queue(loop=self.context.loop)
+        self[name] = queue
+        return queue

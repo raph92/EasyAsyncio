@@ -4,7 +4,7 @@ logger = setup_logger(name='EasyAsyncio')
 from .context import Context
 from .loopmanager import LoopManager
 from .baseasyncioobject import BaseAsyncioObject
-from .prosumer import Prosumer
+from .producer import Producer
 from .consumer import Consumer
 from .queuemanager import QueueManager
 from .datamanager import DataManager
@@ -16,7 +16,7 @@ __all__ = [
     'Context',
     'LoopManager',
     'BaseAsyncioObject',
-    'Prosumer',
+    'Producer',
     'Consumer',
     'QueueManager',
     'DataManager',

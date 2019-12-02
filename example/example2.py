@@ -1,7 +1,9 @@
-from easyasyncio import Prosumer, LoopManager, Constants
+import asyncio
+
+from easyasyncio import Producer, LoopManager, Constants
 
 
-class WithSessionProsumer(Prosumer):
+class WithSessionProducer(Producer):
     """requests websites asynchronously"""
 
     def __init__(self, data: int):
@@ -14,13 +16,14 @@ class WithSessionProsumer(Prosumer):
 
     async def work(self, number):
         """implement the business logic here"""
+        await asyncio.sleep(1)
         async with self.context.session.get(
                 'http://127.0.0.1:5500/temp.html',
                 headers=Constants.HEADERS
         ) as response:
             text = await response.read()
             self.logger.info(text)
-        return True
+        self.append()
 
     @property
     def name(self):
@@ -33,6 +36,6 @@ class WithSessionProsumer(Prosumer):
 
 
 manager = LoopManager()
-manager.add_tasks(WithSessionProsumer(5))
+manager.add_tasks(WithSessionProducer(10))
 
 manager.start(use_session=True)
