@@ -12,7 +12,7 @@ from .stats import Stats
 
 if TYPE_CHECKING:
     from .loopmanager import LoopManager
-    from .prosumer import Prosumer
+    from .baseasyncioobject import BaseAsyncioObject
 
 
 class Context:
@@ -22,7 +22,7 @@ class Context:
     running = True
     queues = QueueManager()
     loop: AbstractEventLoop
-    prosumers: 'Set[Prosumer]' = set()
+    workers: 'Set[BaseAsyncioObject]' = set()
     loop_manager: 'LoopManager'
     session: ClientSession
     data = DataManager()

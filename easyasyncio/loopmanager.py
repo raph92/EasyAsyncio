@@ -7,8 +7,9 @@ from typing import Set
 from aiohttp import ClientSession
 
 from easyasyncio import logger
+from easyasyncio.consumer import Consumer
+from .baseasyncioobject import BaseAsyncioObject
 from .context import Context
-from .prosumer import Prosumer
 
 
 class LoopManager:
@@ -42,21 +43,14 @@ class LoopManager:
             self.context.stats._end_time = time.time()
             self.stop()
 
-    # async def _run(self, start_function, use_session):
-    #     if use_session:
-    #         if start_function:
-    #             self.loop.run_until_complete(start_function())
-    #         else:
-    #             self.loop.run_until_complete(asyncio.gather(*self.tasks))
-
     async def use_with_session(self):
         async with ClientSession() as session:
             self.context.session = session
             await asyncio.gather(*self.tasks)
 
-    def add_tasks(self, *prosumers: 'Prosumer'):
+    def add_tasks(self, *prosumers: 'BaseAsyncioObject'):
         for prosumer in prosumers:
-            assert isinstance(prosumer, Prosumer)
+            assert isinstance(prosumer, BaseAsyncioObject)
             prosumer.initialize(self.context)
             t = self.loop.create_task(prosumer.run())
             self.tasks.add(t)
@@ -67,8 +61,14 @@ class LoopManager:
         logger.info(self.context.stats.get_stats_string())
         self.loop.close()
 
-    @staticmethod
-    def cancel_all_tasks(_, _2):
+    def cancel_all_tasks(self, _, _2):
+        self.running = False
         logger.info('Cancelling all tasks, this may take a moment...')
+        logger.warn('The program may not close, this is a known bug and I am working on a fix')
+        for worker in self.context.workers:
+            if isinstance(worker, Consumer):
+                for _ in range(worker.max_concurrent):
+                    worker.queue.put_nowait(None)
         for task in asyncio.all_tasks():
             task.cancel()
+

@@ -1,19 +1,13 @@
-import abc
 import asyncio
-from abc import abstractmethod
+from abc import ABC
 
-from easyasyncio.baseasyncioobject import BaseAsyncioObject
+from .baseasyncioobject import BaseAsyncioObject
 
 
-class Prosumer(BaseAsyncioObject, metaclass=abc.ABCMeta):
+class Consumer(BaseAsyncioObject, ABC):
 
-    def __init__(self, data):
-        self.data = data
-
-    @abstractmethod
-    async def fill_queue(self):
-        """implement the queue filling logic here"""
-        pass
+    def __init__(self) -> None:
+        super().__init__()
 
     async def worker(self):
         """get each item from the queue and pass it to self.work"""
@@ -27,10 +21,12 @@ class Prosumer(BaseAsyncioObject, metaclass=abc.ABCMeta):
             self.queue.task_done()
 
     async def run(self):
-        await self.fill_queue()
+        """fill the queue for the worker then start it"""
         self.logger.info('%s starting...', self.name)
-        for _ in range(min(self.queue.qsize(), self.max_concurrent)):
+        for _ in range(self.max_concurrent):
             self.workers.add(self.loop.create_task(self.worker()))
         await asyncio.gather(*self.workers)
+        if not self.context.running:
+            return
         await self.queue.join()
         self.logger.info('%s is finished', self.name)
