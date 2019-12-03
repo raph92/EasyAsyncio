@@ -8,8 +8,8 @@ from .baseasyncioobject import BaseAsyncioObject
 class Producer(BaseAsyncioObject, metaclass=abc.ABCMeta):
     start = False  # whether this Producer will start instantly or not
 
-    def __init__(self, data):
-        super().__init__()
+    def __init__(self, data, **kwargs):
+        super().__init__(**kwargs)
         self.data = data
 
     @abstractmethod

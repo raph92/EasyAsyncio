@@ -8,8 +8,8 @@ from .producer import Producer
 class Consumer(BaseAsyncioObject, ABC):
     proceeded_by: Producer  # what producer will be started by this Consumer
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
 
     async def worker(self, *args):
         try:

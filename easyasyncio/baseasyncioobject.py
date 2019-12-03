@@ -8,7 +8,7 @@ from .context import Context
 
 class BaseAsyncioObject:
     tasks: Set[Task]
-    max_concurrent = 5
+    max_concurrent: int
     context: Context
     logger = logger
     loop: AbstractEventLoop
@@ -17,9 +17,9 @@ class BaseAsyncioObject:
     _done = False
     results = []
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, max_concurrent=10) -> None:
         self.tasks = set()
+        self.max_concurrent = max_concurrent
 
     @property
     def queue(self):
