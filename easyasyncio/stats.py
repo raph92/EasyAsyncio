@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 class Stats(Counter):
     """keep track of various stats"""
-    start_time: float
+    start_time = time.time()
     _end_time = None
     data_found = 0
     initial_data_count = 0
@@ -54,6 +54,7 @@ class StatsThread(Thread):
         self.context = context
 
     def run(self) -> None:
+        logger.debug('%s starting...', self.name)
         while self.context.running:
             time.sleep(self.interval)
             if not self.context.loop_manager.running:
