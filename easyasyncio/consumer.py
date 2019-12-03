@@ -17,7 +17,7 @@ class Consumer(BaseAsyncioObject, ABC):
                 data = await self.preprocess(*args)
                 result = await self.work(data)
                 self.queue.task_done()
-                self.results.increment_stat(await self.postprocess(result))
+                self.results.append(await self.postprocess(result))
         except RuntimeError:
             pass
 

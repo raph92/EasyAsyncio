@@ -62,7 +62,7 @@ class LoopManager:
 
     def cancel_all_tasks(self, _, _2):
         logger.info('Cancelling all tasks, this may take a moment...')
-        logger.warn('The program may not close, this is a known bug and I am working on a fix')
+        logger.warning('The program may or may not close immediately, this is a known bug and I am working on a fix')
         for worker in self.context.workers:
             for _ in range(worker.max_concurrent):
                 worker.queue.put_nowait(False)
