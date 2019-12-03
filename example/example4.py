@@ -48,7 +48,7 @@ class CharProducer(Producer):
 
 
 manager = LoopManager()
-producer = CharProducer('Hello Worlddddddddddddddddddddddddddddd')
+producer = CharProducer('Hello Worldddddddddddddddddddddddddddddddddddddddddddddddddd')
 consumer = CharConsumer()
 # producer.add_successor(consumer)
 consumer.max_concurrent = 5

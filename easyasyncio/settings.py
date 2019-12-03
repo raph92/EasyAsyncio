@@ -4,8 +4,6 @@ import os
 
 import logzero
 
-__version__ = '0.0.1'
-
 if not os.path.exists('logs/'):
     os.mkdir('logs')
 logzero.logfile(f'./logs/{datetime.datetime.now().strftime("%y-%m-%d-%H:%M:%S")}.log',
