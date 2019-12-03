@@ -8,7 +8,6 @@ from aiohttp import ClientSession
 
 from easyasyncio import logger
 from .baseasyncioobject import BaseAsyncioObject
-from .consumer import Consumer
 from .context import Context
 
 
@@ -64,8 +63,7 @@ class LoopManager:
         logger.info('Cancelling all tasks, this may take a moment...')
         logger.warn('The program may not close, this is a known bug and I am working on a fix')
         for worker in self.context.workers:
-            if isinstance(worker, Consumer):
-                for _ in range(worker.max_concurrent):
-                    worker.queue.put_nowait(None)
+            for _ in range(worker.max_concurrent):
+                worker.queue.put_nowait(False)
         for task in asyncio.all_tasks():
             task.cancel()

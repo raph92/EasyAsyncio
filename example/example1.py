@@ -33,5 +33,5 @@ class PrintNumbersProducer(Producer):
 
 
 manager = LoopManager()
-manager.add_tasks(PrintNumbersProducer(5))
+manager.add_tasks(PrintNumbersProducer(1000))
 manager.start()
