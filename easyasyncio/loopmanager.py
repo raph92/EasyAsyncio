@@ -40,6 +40,7 @@ class LoopManager:
         finally:
             self.context.stats._end_time = time.time()
             self.stop()
+            self.post_shutdown()
 
     async def use_with_session(self):
         async with ClientSession() as session:
@@ -67,3 +68,7 @@ class LoopManager:
                 worker.queue.put_nowait(False)
         for task in asyncio.all_tasks():
             task.cancel()
+
+    @staticmethod
+    def post_shutdown():
+        pass
