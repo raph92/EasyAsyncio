@@ -30,7 +30,7 @@ class Producer(BaseAsyncioObject, metaclass=abc.ABCMeta):
             async with self.sem:
                 result = await self.work(data)
                 self.queue.task_done()
-                self.results.append(await self.postprocess(result))
+                self.results.increment_stat(await self.postprocess(result))
 
     async def run(self):
         try:

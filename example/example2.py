@@ -23,7 +23,7 @@ class WithSessionProducer(Producer):
         ) as response:
             text = await response.read()
             self.logger.info(text)
-        self.append()
+        self.increment_stat()
 
     @property
     def name(self):

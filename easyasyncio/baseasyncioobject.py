@@ -25,7 +25,7 @@ class BaseAsyncioObject:
     def queue(self):
         return self.context.queues.get(self.name)
 
-    def append(self, n=1):
+    def increment_stat(self, n=1):
         """increment the count of whatever this prosumer is processing"""
         self.context.stats[self] += n
 
@@ -48,6 +48,9 @@ class BaseAsyncioObject:
         self.logger.debug(self.name + ' calling queue_finished()')
         for _ in self.tasks:
             await self.queue.put(False)
+
+    async def fill_queue(self):
+        pass
 
     async def tear_down(self):
         """this is called after all tasks are completed"""
