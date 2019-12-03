@@ -24,7 +24,7 @@ class Consumer(BaseAsyncioObject, ABC):
     async def run(self):
         """fill the queue for the worker then start it"""
         self.logger.info('%s starting...', self.name)
-        self.fill_queue()
+        await self.fill_queue()
         try:
             while self.context.running:
                 self.logger.debug('%s awaiting object from queue', self.name)
