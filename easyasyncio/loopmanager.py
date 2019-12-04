@@ -29,13 +29,14 @@ class LoopManager:
         signal.signal(signal.SIGTERM, self.cancel_all_tasks)
 
     def start(self, use_session=False):
+        succeeded = False
         try:
             self.context.stats.start_time = time.time()
             if use_session:
                 self.loop.run_until_complete(self.use_with_session())
             else:
                 self.loop.run_until_complete(asyncio.gather(*self.tasks))
-            logger.info('All tasks have completed!')
+                succeeded = True
         except asyncio.CancelledError:
             logger.info('All tasks have been canceled')
         except Exception as e:
@@ -44,6 +45,8 @@ class LoopManager:
             self.context.stats._end_time = time.time()
             self.stop()
             self.post_shutdown()
+            if succeeded:
+                logger.info('All tasks have completed!')
 
     async def use_with_session(self):
         async with ClientSession() as session:

@@ -1,6 +1,7 @@
 import asyncio
 
 from easyasyncio import Producer, LoopManager, Consumer
+from easyasyncio.stats import StatsThread
 
 
 class CharConsumer(Consumer):
@@ -53,5 +54,5 @@ consumer = CharConsumer()
 # producer.add_successor(consumer)
 consumer.max_concurrent = 5
 manager.add_tasks(producer, consumer)
-
+data_thread = StatsThread(manager.context)
 manager.start()
