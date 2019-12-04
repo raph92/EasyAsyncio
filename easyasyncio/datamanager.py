@@ -1,5 +1,5 @@
 from collections import UserDict
-from typing import Iterable, Sized
+from typing import Sized
 
 
 class DataManager(UserDict):
@@ -13,7 +13,7 @@ class DataManager(UserDict):
     def get_data_string(self):
         string = '\n'
         for k, v in self.items():
-            if isinstance(v, Iterable) and isinstance(v, Sized):
+            if isinstance(v, Sized) and not isinstance(v, str):
                 string += f'\t\t\t    {k} count: {len(v)}\n'
             else:
                 string += f'\t\t\t    {k}: {v}\n'
