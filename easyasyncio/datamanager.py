@@ -11,6 +11,6 @@ class DataManager(UserDict):
 
     def get_data_string(self):
         string = '\n'
-        for k, v in self:
+        for k, v in self.items():
             string += f'\t\t\t    {k}: {v}\n'
         return string.rstrip()
