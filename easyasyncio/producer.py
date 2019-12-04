@@ -44,9 +44,7 @@ class Producer(BaseAsyncioObject, metaclass=abc.ABCMeta):
             self.logger.info('%s starting...', self.name)
             self.status('creating workers')
             for _ in range(self.max_concurrent):
-                self.logger.debug(self.name + ' creating workers')
                 self.tasks.add(self.loop.create_task(self.worker(_)))
-
             self.logger.debug(self.name + ' finished creating workers')
             self.status('awaiting tasks to finish')
             await self.queue_finished()

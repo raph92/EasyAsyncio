@@ -7,8 +7,8 @@ from easyasyncio.stats import StatsThread
 class CharConsumer(Consumer):
     """print numbers asynchronously"""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
 
     async def work(self, char):
         """this logic gets called after an object is retrieved from the queue"""
@@ -28,8 +28,8 @@ class CharConsumer(Consumer):
 
 class CharProducer(Producer):
 
-    def __init__(self, data: str):
-        super().__init__(list(data))
+    def __init__(self, data: str, **kwargs):
+        super().__init__(list(data), **kwargs)
 
     async def fill_queue(self):
         for i in self.data:
@@ -41,7 +41,7 @@ class CharProducer(Producer):
         self.increment_stat()
 
     async def tear_down(self):
-        await self.context.queues['consume_char'].put(False)
+        await self.successor.queue_finished()
 
     @property
     def name(self):
@@ -49,10 +49,10 @@ class CharProducer(Producer):
 
 
 manager = LoopManager()
-producer = CharProducer('Hello Worldddddddddddddddddddddddddddddddddddddddddddddddddd')
+producer = CharProducer('Hello Worldddddddddddddddddddddddddddddddddddddddddddddddddd', max_concurrent=5)
 consumer = CharConsumer()
+producer.add_successor(consumer)
 # producer.add_successor(consumer)
-consumer.max_concurrent = 5
 manager.add_tasks(producer, consumer)
 data_thread = StatsThread(manager.context)
 manager.start()
