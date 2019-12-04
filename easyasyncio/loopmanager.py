@@ -71,6 +71,7 @@ class LoopManager:
                 worker.queue.put_nowait(False)
         for task in asyncio.all_tasks():
             task.cancel()
+        self.stop()
 
     def post_shutdown(self):
         if self.context.save_thread:

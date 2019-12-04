@@ -67,6 +67,7 @@ class BaseAsyncioObject:
         """
         The next async worker that will work on the data that this async worker gathers
         """
+        assert successor != self
         self.successor = successor
 
     @abstractmethod
