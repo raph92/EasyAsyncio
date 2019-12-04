@@ -2,14 +2,16 @@ import asyncio
 import signal
 import time
 from asyncio import Task
-from typing import Set
+from typing import Set, TYPE_CHECKING
 
 from aiohttp import ClientSession
 
 from easyasyncio import logger
 from .baseasyncioobject import BaseAsyncioObject
 from .context import Context
-from .savethread import SaveThread
+
+if TYPE_CHECKING:
+    pass
 
 
 class LoopManager:
@@ -20,12 +22,11 @@ class LoopManager:
     tasks: Set[Task] = set()
     session: ClientSession
 
-    def __init__(self, save_thread: SaveThread = None):
+    def __init__(self):
         self.loop = asyncio.get_event_loop()
         self.context = Context(self)
         signal.signal(signal.SIGINT, self.cancel_all_tasks)
         signal.signal(signal.SIGTERM, self.cancel_all_tasks)
-        self.save_thread = save_thread
 
     def start(self, use_session=False):
         try:
@@ -72,5 +73,5 @@ class LoopManager:
             task.cancel()
 
     def post_shutdown(self):
-        if self.save_thread:
-            self.save_thread.save_func()
+        if self.context.save_thread:
+            self.context.save_thread.save_func()

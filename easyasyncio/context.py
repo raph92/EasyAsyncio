@@ -13,6 +13,7 @@ from .stats import Stats
 if TYPE_CHECKING:
     from .loopmanager import LoopManager
     from .baseasyncioobject import BaseAsyncioObject
+    from .savethread import SaveThread
 
 
 class Context:
@@ -22,6 +23,7 @@ class Context:
     queues: QueueManager
     loop: AbstractEventLoop
     workers: 'Set[BaseAsyncioObject]' = set()
+    save_thread: 'SaveThread' = None
     loop_manager: 'LoopManager'
     session: ClientSession
     data = DataManager()

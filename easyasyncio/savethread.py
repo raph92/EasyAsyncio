@@ -13,6 +13,7 @@ class SaveThread(Thread):
     def __init__(self, context: Context) -> None:
         super().__init__()
         self.context = context
+        self.context.save_thread = self
 
     def run(self) -> None:
         logger.debug('save thread starting...')
