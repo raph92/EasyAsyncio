@@ -47,7 +47,7 @@ class Consumer(BaseAsyncioObject, ABC):
                     self.tasks.add(task)
         except Exception as e:
             self.logger.exception(e)
-        self.status('finished with queue. Waiting tasks to finish')
+        self.status('finished with queue. Waiting for tasks to finish')
         await asyncio.gather(*self.tasks)
         await self.tear_down()
         self.status('finished')
