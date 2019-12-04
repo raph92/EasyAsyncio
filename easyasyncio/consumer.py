@@ -30,15 +30,20 @@ class Consumer(BaseAsyncioObject, ABC):
             while self.context.running:
                 self.logger.debug('%s awaiting object from queue', self.name)
                 self.status('waiting for queue object')
-                data = await self.queue.get()
-                self.status('working')
-                if data is False:
-                    self.logger.debug('%s breaking', self.name)
-                    self._done = True
-                    break
-                self.logger.debug('%s un-queued data: %s', self.name, data)
-                task = self.loop.create_task(self.worker(data))
-                self.tasks.add(task)
+
+                try:
+                    data = await self.queue.get()
+                except RuntimeError as e:
+                    return
+                else:
+                    self.status('working')
+                    if data is False:
+                        self.logger.debug('%s breaking', self.name)
+                        self._done = True
+                        break
+                    self.logger.debug('%s un-queued data: %s', self.name, data)
+                    task = self.loop.create_task(self.worker(data))
+                    self.tasks.add(task)
         except Exception as e:
             self.logger.exception(e)
         self.status('finished with queue. Waiting tasks to finish')
