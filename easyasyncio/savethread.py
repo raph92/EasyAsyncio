@@ -18,10 +18,15 @@ class SaveThread(Thread):
     def run(self) -> None:
         logger.debug('save thread starting...')
         while self.context.running:
-            time.sleep(self.interval)
-            if not self.context.loop_manager.running:
-                break
-            self.save_func()
+            try:
+                time.sleep(self.interval)
+                if not self.context.loop_manager.running:
+                    break
+                self.save_func()
+            except RuntimeError:
+                pass
+            except Exception as e:
+                logger.exception(e)
 
     @abstractmethod
     def save_func(self):
