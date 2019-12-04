@@ -21,6 +21,6 @@ class QueueManager(UserDict, Dict[str, 'Queue']):
 
     def new(self, name):
         self.logger.info('Creating new queue: %s...', name)
-        queue = Queue(loop=self.context.loop)
+        queue = Queue()
         self[name] = queue
         return queue

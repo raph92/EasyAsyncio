@@ -34,6 +34,7 @@ class BaseAsyncioObject:
         self.loop = context.loop
         self.context.workers.add(self)
         self.sem = Semaphore(self.max_concurrent)
+        self.context.queues.new(self.name)
 
     async def preprocess(self, item):
         """do any pre-processing to the queue item here"""
