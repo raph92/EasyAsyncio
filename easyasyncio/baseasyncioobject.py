@@ -27,7 +27,7 @@ class BaseAsyncioObject:
 
     def increment_stat(self, n=1):
         """increment the count of whatever this prosumer is processing"""
-        self.context.stats[self] += n
+        self.context.stats[self.name] += n
 
     def initialize(self, context: Context):
         self.context = context
@@ -35,6 +35,7 @@ class BaseAsyncioObject:
         self.context.workers.add(self)
         self.sem = Semaphore(self.max_concurrent)
         self.context.queues.new(self.name)
+        self.status('initialized')
 
     async def preprocess(self, item):
         """do any pre-processing to the queue item here"""
@@ -47,21 +48,17 @@ class BaseAsyncioObject:
     async def queue_finished(self):
         """called when all tasks are finished with queue"""
         self.logger.debug(self.name + ' calling queue_finished()')
-        for _ in self.tasks:
-            await self.queue.put(False)
+        await self.queue.put(False)
 
     async def fill_queue(self):
         pass
 
-    def status(self, status: str):
-        self.context.data[f'{self.name}\'s status'] = status
+    def status(self, *strings: str):
+        self.context.data[f'{self.name}\'s status'] = ' '.join(
+            [str(s) if not isinstance(s, str) else s for s in strings])
 
     async def tear_down(self):
         """this is called after all tasks are completed"""
-        pass
-
-    async def finished(self):
-        """called after tear_down"""
         pass
 
     async def queue_successor(self, data):
