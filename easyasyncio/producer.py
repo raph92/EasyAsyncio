@@ -34,6 +34,7 @@ class Producer(BaseAsyncioObject, metaclass=abc.ABCMeta):
 
     async def run(self):
         try:
+            self.status('populating queue')
             await self.fill_queue()
             self.logger.debug(self.name + ' finished populating queue')
         except Exception as e:
@@ -41,6 +42,7 @@ class Producer(BaseAsyncioObject, metaclass=abc.ABCMeta):
             raise e
         else:
             self.logger.info('%s starting...', self.name)
+            self.status('creating workers')
             for _ in range(self.max_concurrent):
                 self.logger.debug(self.name + ' creating task')
                 self.tasks.add(self.loop.create_task(self.worker(_)))

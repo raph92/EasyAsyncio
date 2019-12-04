@@ -61,14 +61,20 @@ class LoopManager:
         logger.info('Closing...')
         self.running = False
         logger.info(self.context.stats.get_stats_string())
-        self.loop.close()
+        logger.info(self.context.data.get_data_string())
+        try:
+            self.loop.close()
+        except RuntimeError as re:
+            pass
+        finally:
+            self.post_shutdown()
 
     def cancel_all_tasks(self, _, _2):
         logger.info('Cancelling all tasks, this may take a moment...')
         logger.warning('The program may or may not close immediately, this is a known bug and I am working on a fix')
+        self.loop.close()
         for worker in self.context.workers:
-            for _ in range(worker.max_concurrent):
-                worker.queue.put_nowait(False)
+            worker.queue.put_nowait(False)
         for task in asyncio.all_tasks():
             task.cancel()
         self.stop()

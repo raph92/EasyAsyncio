@@ -52,6 +52,9 @@ class BaseAsyncioObject:
     async def fill_queue(self):
         pass
 
+    def status(self, status: str):
+        self.context.data[f'{self.name}\'s status'] = status
+
     async def tear_down(self):
         """this is called after all tasks are completed"""
         pass

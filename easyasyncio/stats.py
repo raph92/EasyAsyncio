@@ -60,3 +60,4 @@ class StatsThread(Thread):
             if not self.context.loop_manager.running:
                 break
             logger.debug(self.context.stats.get_stats_string())
+            logger.debug(self.context.data.get_data_string())

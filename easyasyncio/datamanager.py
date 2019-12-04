@@ -8,3 +8,9 @@ class DataManager(UserDict):
     def register(self, name, init):
         # todo
         pass
+
+    def get_data_string(self):
+        string = '\n'
+        for k, v in self:
+            string += f'\t\t\t    {k}: {v}\n'
+        return string.rstrip()
