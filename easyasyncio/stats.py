@@ -31,7 +31,11 @@ class Stats(Counter):
             string += f'\t\t\t    {k} success count: {v}\n'
             string += f'\t\t\t    {k}\'s processed per second: {v / self.elapsed_time}\n'
         for p in self.context.workers:
-            string += f'\t\t\t    {p.name} queue: {p.queue.qsize()} items left\n'
+            from .consumer import Consumer
+            if isinstance(p, Consumer):
+                string += f'\t\t\t    {p.name} queue: {p.working + p.queue.qsize()} items left\n'
+            else:
+                string += f'\t\t\t    {p.name} queue: {p.queue.qsize()} items left\n'
             string += f'\t\t\t    {p.name} workers: {p.max_concurrent}\n'
         return string.rstrip()
 
@@ -52,6 +56,7 @@ class StatsThread(Thread):
     def __init__(self, context: 'Context') -> None:
         super().__init__()
         self.context = context
+        self.context.stats_thread = self
 
     def run(self) -> None:
         logger.debug('%s starting...', self.name)
