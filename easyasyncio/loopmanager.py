@@ -31,6 +31,10 @@ class LoopManager:
     def start(self, use_session=False):
         succeeded = False
         try:
+            if self.context.save_thread:
+                self.context.save_thread.start()
+            if self.context.stats_thread:
+                self.context.stats_thread.start()
             self.context.stats.start_time = time.time()
             if use_session:
                 self.loop.run_until_complete(self.use_with_session())

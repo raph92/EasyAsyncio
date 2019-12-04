@@ -8,7 +8,7 @@ from easyasyncio import logger
 from .datamanager import DataManager
 from .queuemanager import QueueManager
 from .settings import Settings
-from .stats import Stats
+from .stats import Stats, StatsThread
 
 if TYPE_CHECKING:
     from .loopmanager import LoopManager
@@ -24,6 +24,7 @@ class Context:
     loop: AbstractEventLoop
     workers: 'Set[BaseAsyncioObject]' = set()
     save_thread: 'SaveThread' = None
+    stats_thread: 'StatsThread' = None
     loop_manager: 'LoopManager'
     session: ClientSession
     data = DataManager()
