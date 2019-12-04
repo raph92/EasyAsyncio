@@ -25,7 +25,7 @@ class Producer(BaseAsyncioObject, metaclass=abc.ABCMeta):
             if data is False:
                 self.logger.debug('%s worker %s terminating', self.name, num)
                 break
-            self.logger.debug('%s worker %s retrieved queued data %s', self.name, num, data)
+            # self.logger.debug('%s worker %s retrieved queued data %s', self.name, num, data)
             data = await self.preprocess(data)
             async with self.sem:
                 result = await self.work(data)
@@ -44,12 +44,13 @@ class Producer(BaseAsyncioObject, metaclass=abc.ABCMeta):
             self.logger.info('%s starting...', self.name)
             self.status('creating workers')
             for _ in range(self.max_concurrent):
-                self.logger.debug(self.name + ' creating task')
+                self.logger.debug(self.name + ' creating workers')
                 self.tasks.add(self.loop.create_task(self.worker(_)))
 
             self.logger.debug(self.name + ' finished creating workers')
+            self.status('awaiting tasks to finish')
             await self.queue_finished()
             await asyncio.gather(*self.tasks)
             await self.tear_down()
-            await self.finished()
+            self.status('finished')
             self.logger.info('%s is finished: %s', self.name, self.results)
