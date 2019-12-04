@@ -7,11 +7,13 @@ from .producer import Producer
 
 class Consumer(BaseAsyncioObject, ABC):
     proceeded_by: Producer  # what producer will be started by this Consumer
+    working = 0
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
     async def worker(self, *args):
+        self.working += 1
         try:
             async with self.sem:
                 data = await self.preprocess(*args)
@@ -20,6 +22,8 @@ class Consumer(BaseAsyncioObject, ABC):
                 self.results.append(await self.postprocess(result))
         except RuntimeError:
             pass
+        finally:
+            self.working -= 1
 
     async def run(self):
         """fill the queue for the worker then start it"""
@@ -28,20 +32,17 @@ class Consumer(BaseAsyncioObject, ABC):
         await self.fill_queue()
         try:
             while self.context.running:
-                self.logger.debug('%s awaiting object from queue', self.name)
                 self.status('waiting for queue object')
-
                 try:
                     data = await self.queue.get()
                 except RuntimeError as e:
                     return
                 else:
-                    self.status('working')
                     if data is False:
                         self.logger.debug('%s breaking', self.name)
                         self._done = True
                         break
-                    self.logger.debug('%s un-queued data: %s', self.name, data)
+                    self.status('creating worker for', data)
                     task = self.loop.create_task(self.worker(data))
                     self.tasks.add(task)
         except Exception as e:
