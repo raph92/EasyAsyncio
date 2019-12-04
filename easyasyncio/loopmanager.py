@@ -9,6 +9,7 @@ from aiohttp import ClientSession
 from easyasyncio import logger
 from .baseasyncioobject import BaseAsyncioObject
 from .context import Context
+from .savethread import SaveThread
 
 
 class LoopManager:
@@ -19,11 +20,12 @@ class LoopManager:
     tasks: Set[Task] = set()
     session: ClientSession
 
-    def __init__(self):
+    def __init__(self, save_thread: SaveThread = None):
         self.loop = asyncio.get_event_loop()
         self.context = Context(self)
         signal.signal(signal.SIGINT, self.cancel_all_tasks)
         signal.signal(signal.SIGTERM, self.cancel_all_tasks)
+        self.save_thread = save_thread
 
     def start(self, use_session=False):
         try:
@@ -69,6 +71,6 @@ class LoopManager:
         for task in asyncio.all_tasks():
             task.cancel()
 
-    @staticmethod
-    def post_shutdown():
-        pass
+    def post_shutdown(self):
+        if self.save_thread:
+            self.save_thread.save_func()

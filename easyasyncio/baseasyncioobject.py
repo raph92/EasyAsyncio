@@ -58,18 +58,16 @@ class BaseAsyncioObject:
 
     async def finished(self):
         """called after tear_down"""
-        if self.successor:
-            self.context.loop_manager.add_tasks(self.successor)
+        pass
+
+    async def queue_successor(self, data):
+        await self.successor.queue.put(data)
 
     def add_successor(self, successor: 'BaseAsyncioObject'):
         """
-        The next async worker that will start after this task completes.
-        WARNING: The method will cause a dirty shutdown
+        The next async worker that will work on the data that this async worker gathers
         """
-        # todo complete this logic
         self.successor = successor
-        import warnings
-        warnings.warn(RuntimeWarning('The method will cause a dirty shutdown'), stacklevel=2)
 
     @abstractmethod
     async def run(self):
