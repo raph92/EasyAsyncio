@@ -56,6 +56,7 @@ class StatsDisplay:
     def __init__(self, context: 'Context') -> None:
         super().__init__()
         self.context = context
+        del self.context.stats_thread
         self.context.stats_thread = self
 
     async def run(self) -> None:
@@ -66,3 +67,4 @@ class StatsDisplay:
             logger.debug(self.context.stats.get_stats_string())
             logger.debug(self.context.data.get_data_string())
             await asyncio.sleep(self.interval)
+

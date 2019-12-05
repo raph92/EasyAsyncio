@@ -15,6 +15,7 @@ class AutoSave:
     def __init__(self, context: 'Context') -> None:
         super().__init__()
         self.context = context
+        del self.context.save_thread
         self.context.save_thread = self
 
     async def run(self) -> None:
