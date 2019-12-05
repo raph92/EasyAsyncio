@@ -40,7 +40,7 @@ class LoopManager:
                 self.loop.run_until_complete(self.use_with_session())
             else:
                 self.loop.run_until_complete(asyncio.gather(*self.tasks))
-                succeeded = True
+            succeeded = True
         except asyncio.CancelledError:
             logger.info('All tasks have been canceled')
         except Exception as e:
@@ -88,6 +88,7 @@ class LoopManager:
             for task in asyncio.all_tasks():
                 task.cancel()
         except AttributeError:
+            # python 3.6 support
             for worker in self.context.workers:
                 for task in worker.tasks:
                     task.cancel()
