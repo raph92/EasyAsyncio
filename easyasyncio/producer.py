@@ -2,10 +2,10 @@ import abc
 import asyncio
 from abc import abstractmethod
 
-from .baseasyncioobject import BaseAsyncioObject
+from .abstractasyncworker import AbstractAsyncWorker
 
 
-class Producer(BaseAsyncioObject, metaclass=abc.ABCMeta):
+class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
     start = False  # whether this Producer will start instantly or not
 
     def __init__(self, data, **kwargs):

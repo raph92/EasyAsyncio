@@ -31,7 +31,7 @@ class DataManager(UserDict):
 
     def register(self, name, initial_data, path=directory):
         """
-        Register a load a data file.
+        Register and load a data file. This file will be accessible to every AsyncWorker through context.data[name]
         """
         loaded_data = None
         file_path, file_name = os.path.split(path)
@@ -58,6 +58,7 @@ class DataManager(UserDict):
     def get_data_string(self):
         string = '\n'
         for k, v in self.items():
+            # only print the length of iterable values
             if isinstance(v, Sized) and not isinstance(v, str):
                 string += f'\t\t\t    {k} count: {len(v)}\n'
             else:

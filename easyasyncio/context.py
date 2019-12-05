@@ -11,7 +11,7 @@ from .stats import Stats, StatsDisplay
 
 if TYPE_CHECKING:
     from .loopmanager import LoopManager
-    from .baseasyncioobject import BaseAsyncioObject
+    from .abstractasyncworker import AbstractAsyncWorker
 
 
 class Context:
@@ -19,7 +19,7 @@ class Context:
     settings = Settings()
     queues: QueueManager
     loop: AbstractEventLoop
-    workers: 'Set[BaseAsyncioObject]' = set()
+    workers: 'Set[AbstractAsyncWorker]' = set()
     save_thread: 'AutoSave' = None
     stats_thread: 'StatsDisplay' = None
     loop_manager: 'LoopManager'

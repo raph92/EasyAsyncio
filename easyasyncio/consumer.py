@@ -1,11 +1,11 @@
 import asyncio
 from abc import ABC
 
-from .baseasyncioobject import BaseAsyncioObject
+from .abstractasyncworker import AbstractAsyncWorker
 from .producer import Producer
 
 
-class Consumer(BaseAsyncioObject, ABC):
+class Consumer(AbstractAsyncWorker, ABC):
     proceeded_by: Producer  # what producer will be started by this Consumer
     working = 0
 

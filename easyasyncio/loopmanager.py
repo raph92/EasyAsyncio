@@ -7,7 +7,7 @@ from typing import Set
 from aiohttp import ClientSession
 
 from . import logger
-from .baseasyncioobject import BaseAsyncioObject
+from .abstractasyncworker import AbstractAsyncWorker
 from .context import Context
 
 
@@ -55,11 +55,11 @@ class LoopManager:
             self.context.session = session
             await asyncio.gather(*self.worker_tasks)
 
-    def add_tasks(self, *asyncio_objects: 'BaseAsyncioObject'):
-        for prosumer in asyncio_objects:
-            assert isinstance(prosumer, BaseAsyncioObject)
-            prosumer.initialize(self.context)
-            t = asyncio.ensure_future(prosumer.run())
+    def add_tasks(self, *asyncio_objects: 'AbstractAsyncWorker'):
+        for obj in asyncio_objects:
+            assert isinstance(obj, AbstractAsyncWorker)
+            obj.initialize(self.context)
+            t = asyncio.ensure_future(obj.run())
             self.worker_tasks.add(t)
 
     def stop(self):

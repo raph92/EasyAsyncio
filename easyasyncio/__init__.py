@@ -3,7 +3,7 @@ from logzero import setup_logger
 logger = setup_logger(name='EasyAsyncio')
 from .context import Context
 from .loopmanager import LoopManager
-from .baseasyncioobject import BaseAsyncioObject
+from .abstractasyncworker import AbstractAsyncWorker
 from .producer import Producer
 from .consumer import Consumer
 from .queuemanager import QueueManager
@@ -15,7 +15,7 @@ from .autosave import AutoSave
 __all__ = [
     'Context',
     'LoopManager',
-    'BaseAsyncioObject',
+    'AbstractAsyncWorker',
     'Producer',
     'Consumer',
     'QueueManager',

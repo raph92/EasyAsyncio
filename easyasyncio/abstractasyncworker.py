@@ -1,3 +1,4 @@
+import abc
 from abc import abstractmethod
 from asyncio import AbstractEventLoop, Semaphore, Future
 from typing import Set
@@ -7,14 +8,14 @@ from .context import Context
 
 
 # noinspection PyMethodMayBeStatic
-class BaseAsyncioObject:
+class AbstractAsyncWorker(abc.ABC):
     tasks: Set[Future]
     max_concurrent: int
     context: Context
     logger = logger
     loop: AbstractEventLoop
     sem: Semaphore
-    successor: 'BaseAsyncioObject' = None
+    successor: 'AbstractAsyncWorker' = None
     _done = False
     results = []
 
@@ -65,7 +66,7 @@ class BaseAsyncioObject:
     async def queue_successor(self, data):
         await self.successor.queue.put(data)
 
-    def add_successor(self, successor: 'BaseAsyncioObject'):
+    def add_successor(self, successor: 'AbstractAsyncWorker'):
         """
         The next async worker that will work on the data that this async worker gathers
         """
