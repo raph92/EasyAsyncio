@@ -12,6 +12,8 @@ setup(
     install_requires=[
         'logzero',
         'aiohttp',
-        'https://github.com/RaphaelNanje/easyfilemanager/archive/0.0.1.tar.gz'
-    ]
+        'requests',
+        'easyfilemanager @ https://github.com/RaphaelNanje/easyfilemanager/archive/0.0.1.tar.gz'
+    ],
+    python_requies='~=3.6'
 )
