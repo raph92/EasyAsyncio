@@ -1,6 +1,6 @@
 import abc
 from abc import abstractmethod
-from asyncio import AbstractEventLoop, Semaphore, Future
+from asyncio import AbstractEventLoop, Semaphore, Future, Queue
 from typing import Set
 
 from . import logger
@@ -24,7 +24,7 @@ class AbstractAsyncWorker(abc.ABC):
         self.max_concurrent = max_concurrent
 
     @property
-    def queue(self):
+    def queue(self) -> Queue:
         return self.context.queues.get(self.name)
 
     def increment_stat(self, n=1):
