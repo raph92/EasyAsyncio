@@ -1,32 +1,30 @@
-import logging
 from asyncio import AbstractEventLoop
 from typing import TYPE_CHECKING, Set
 
 from aiohttp import ClientSession
 
-from easyasyncio import logger
+from .autosave import AutoSave
 from .datamanager import DataManager
 from .queuemanager import QueueManager
 from .settings import Settings
-from .stats import Stats, StatsThread
+from .stats import Stats, StatsDisplay
 
 if TYPE_CHECKING:
     from .loopmanager import LoopManager
     from .baseasyncioobject import BaseAsyncioObject
-    from .savethread import SaveThread
 
 
 class Context:
     """The purpose of this class is to access all important objects from one place"""
     settings = Settings()
-    logger: logging.Logger = logger
     queues: QueueManager
     loop: AbstractEventLoop
     workers: 'Set[BaseAsyncioObject]' = set()
-    save_thread: 'SaveThread' = None
-    stats_thread: 'StatsThread' = None
+    save_thread: 'AutoSave' = None
+    stats_thread: 'StatsDisplay' = None
     loop_manager: 'LoopManager'
     session: ClientSession
+
     data = DataManager()
 
     def __init__(self, loop_manager) -> None:
@@ -34,6 +32,8 @@ class Context:
         self.loop_manager = loop_manager
         self.loop = self.loop_manager.loop
         self.queues = QueueManager(self)
+        self.save_thread = AutoSave(self)
+        self.stats_thread = StatsDisplay(self)
 
     @property
     def running(self):

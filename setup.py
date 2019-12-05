@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='easyasyncio',
-    version='4.5.1',
+    version='5.0.0',
     packages=['easyasyncio'],
     url='https://github.com/RaphaelNanje/easyasyncio.git',
     license='MIT',
@@ -11,6 +11,7 @@ setup(
     description='A library that makes asyncio simple',
     install_requires=[
         'logzero',
-        'aiohttp'
+        'aiohttp',
+        'https://github.com/RaphaelNanje/easyfilemanager/archive/0.0.1.tar.gz'
     ]
 )

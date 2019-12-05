@@ -5,15 +5,16 @@ import random
 from easyasyncio import Producer, LoopManager, Consumer
 
 
-class ConsumerNumberExample(Consumer):
+class AutoSaveExample(Consumer):
     """print numbers asynchronously"""
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
     async def fill_queue(self):
-        for i in range(10):
-            await self.queue.put(i)
+        for i in range(100):
+            if i not in self.context.data['numbers']:
+                await self.queue.put(i)
         await self.queue_finished()
 
     async def work(self, number):
@@ -21,7 +22,7 @@ class ConsumerNumberExample(Consumer):
         sum(list(range(number)))
         self.increment_stat()
         await asyncio.sleep(random.randint(1, 5))
-        return number
+        self.context.data['numbers'].add(number)
 
     async def tear_down(self):
         print(self.name, 'done at', datetime.datetime.now())
@@ -59,9 +60,10 @@ class ExampleProducer(Producer):
 
 
 manager = LoopManager()
+consumer = AutoSaveExample(max_concurrent=15)
+producer = ExampleProducer(100, max_concurrent=5)
 
-consumer = ConsumerNumberExample(max_concurrent=5)
-producer = ExampleProducer(10, max_concurrent=5)
+manager.context.data.register('numbers', set(), './numbers/numbers.txt')
 
 manager.add_tasks(consumer)
 manager.start()

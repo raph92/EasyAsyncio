@@ -10,7 +10,7 @@ from .queuemanager import QueueManager
 from .datamanager import DataManager
 from .constants import Constants
 from .stats import Stats
-from .savethread import SaveThread
+from .autosave import AutoSave
 
 __all__ = [
     'Context',
@@ -22,6 +22,6 @@ __all__ = [
     'DataManager',
     'Constants',
     'Stats',
-    'SaveThread',
+    'AutoSave',
     'logger',
 ]

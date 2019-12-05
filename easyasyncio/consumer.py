@@ -13,7 +13,7 @@ class Consumer(BaseAsyncioObject, ABC):
         super().__init__(**kwargs)
 
     async def worker(self, *args):
-        self.working += 1
+        self.working += 1  # keeps track of the number of workers
         try:
             async with self.sem:
                 data = await self.preprocess(*args)
@@ -35,15 +35,15 @@ class Consumer(BaseAsyncioObject, ABC):
                 self.status('waiting for queue object')
                 try:
                     data = await self.queue.get()
-                except RuntimeError as e:
+                except RuntimeError:
                     return
                 else:
                     if data is False:
-                        self.logger.debug('%s breaking', self.name)
+                        self.logger.debug('%s finished creating tasks', self.name)
                         self._done = True
                         break
                     self.status('creating worker for', data)
-                    task = self.loop.create_task(self.worker(data))
+                    task = asyncio.ensure_future(self.worker(data))
                     self.tasks.add(task)
         except Exception as e:
             self.logger.exception(e)

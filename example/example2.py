@@ -6,8 +6,8 @@ from easyasyncio import Producer, LoopManager, Constants
 class WithSessionProducer(Producer):
     """requests websites asynchronously"""
 
-    def __init__(self, data: int):
-        super().__init__(data)
+    def __init__(self, data: int, **kwargs):
+        super().__init__(data, **kwargs)
 
     async def fill_queue(self):
         """override this abstract class to fill the queue"""
@@ -35,7 +35,7 @@ class WithSessionProducer(Producer):
         return 'parse_request'
 
 
-manager = LoopManager()
-manager.add_tasks(WithSessionProducer(10))
+manager = LoopManager(auto_save=False)
+manager.add_tasks(WithSessionProducer(100, max_concurrent=15))
 
 manager.start(use_session=True)

@@ -1,9 +1,9 @@
+import asyncio
 import time
 from collections import Counter
-from threading import Thread
 from typing import TYPE_CHECKING
 
-from easyasyncio import logger
+from . import logger
 
 if TYPE_CHECKING:
     from .context import Context
@@ -49,8 +49,8 @@ class Stats(Counter):
         return self.end_time - self.start_time
 
 
-class StatsThread(Thread):
-    name = 'StatsThread'
+class StatsDisplay:
+    name = 'StatsDisplay'
     interval = 15
 
     def __init__(self, context: 'Context') -> None:
@@ -58,11 +58,11 @@ class StatsThread(Thread):
         self.context = context
         self.context.stats_thread = self
 
-    def run(self) -> None:
+    async def run(self) -> None:
         logger.debug('%s starting...', self.name)
         while self.context.running:
-            time.sleep(self.interval)
             if not self.context.loop_manager.running:
                 break
             logger.debug(self.context.stats.get_stats_string())
             logger.debug(self.context.data.get_data_string())
+            await asyncio.sleep(self.interval)

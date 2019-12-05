@@ -7,8 +7,8 @@ from easyasyncio import Producer, LoopManager
 class PrintNumbersProducer(Producer):
     """print numbers asynchronously"""
 
-    def __init__(self, data: int):
-        super().__init__(data)
+    def __init__(self, data: int, **kwargs):
+        super().__init__(data, **kwargs)
 
     async def fill_queue(self):
         """override this abstract class to fill the queue"""
@@ -20,7 +20,7 @@ class PrintNumbersProducer(Producer):
         sleep_time = random.randint(1, 3)
         await asyncio.sleep(sleep_time)
         self.logger.info(number)
-        return True
+        self.increment_stat()
 
     @property
     def name(self):
@@ -33,5 +33,5 @@ class PrintNumbersProducer(Producer):
 
 
 manager = LoopManager()
-manager.add_tasks(PrintNumbersProducer(1000))
+manager.add_tasks(PrintNumbersProducer(1000, max_concurrent=15))
 manager.start()

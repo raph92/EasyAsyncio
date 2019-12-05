@@ -1,13 +1,14 @@
 from abc import abstractmethod
-from asyncio import AbstractEventLoop, Semaphore, Task
+from asyncio import AbstractEventLoop, Semaphore, Future
 from typing import Set
 
-from easyasyncio import logger
+from . import logger
 from .context import Context
 
 
+# noinspection PyMethodMayBeStatic
 class BaseAsyncioObject:
-    tasks: Set[Task]
+    tasks: Set[Future]
     max_concurrent: int
     context: Context
     logger = logger
@@ -47,7 +48,7 @@ class BaseAsyncioObject:
 
     async def queue_finished(self):
         """called when all tasks are finished with queue"""
-        self.logger.debug(self.name + ' calling queue_finished()')
+        self.logger.debug(self.name + ' finished queueing')
         await self.queue.put(False)
 
     async def fill_queue(self):

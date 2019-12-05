@@ -33,21 +33,21 @@ class ExampleProducer(Producer):
     async def fill_queue(self):
         for i in range(self.data):
             await self.queue.put(i)
+        await self.queue_finished()
 
     async def work(self, num):
-        self.logger.debug('%s adding %s to consume_number queue', self.name, num)
-        await self.context.queues['consume_number'].put(num)
+        await self.queue_successor(num)
         self.increment_stat()
 
     async def tear_down(self):
-        await self.context.queues['consume_number'].put(False)
+        await self.successor.queue_finished()
 
     @property
     def name(self):
         return 'produce_number'
 
 
-manager = LoopManager()
+manager = LoopManager(False)
 consumer = ConsumerNumberExample()
 producer = ExampleProducer(100)
 consumer.max_concurrent = 5
