@@ -81,8 +81,18 @@ class LoopManager:
         logger.warning('The program may or may not close immediately, this is a known bug and I am working on a fix')
         for worker in self.context.workers:
             worker.queue.put_nowait(False)
-        for task in asyncio.all_tasks():
-            task.cancel()
+            for task in worker.tasks:
+                task.cancel()
+                worker.queue.put(False)
+        try:
+            for task in asyncio.all_tasks():
+                task.cancel()
+        except AttributeError:
+            for worker in self.context.workers:
+                for task in worker.tasks:
+                    task.cancel()
+            for task in self.tasks:
+                task.cancel()
         self.stop()
 
     def post_shutdown(self):

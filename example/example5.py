@@ -13,7 +13,7 @@ class ConsumerNumberExample(Consumer):
         super().__init__(**kwargs)
 
     async def fill_queue(self):
-        for i in range(100_000):
+        for i in range(10):
             await self.queue.put(i)
         await self.queue_finished()
 
@@ -45,6 +45,7 @@ class ExampleProducer(Producer):
         for i in range(self.data):
             await self.queue.put(i)
 
+
     async def work(self, num):
         sum(list(range(num)))
         self.increment_stat()
@@ -62,7 +63,7 @@ manager = LoopManager()
 ss = StatsThread(manager.context)
 
 consumer = ConsumerNumberExample(max_concurrent=5)
-producer = ExampleProducer(100_000, max_concurrent=5)
+producer = ExampleProducer(10, max_concurrent=5)
 
-manager.add_tasks(producer)
+manager.add_tasks(consumer)
 manager.start()

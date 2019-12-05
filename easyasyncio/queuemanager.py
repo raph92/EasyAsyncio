@@ -1,12 +1,11 @@
 from asyncio import Queue
-from collections import UserDict
 from typing import Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .context import Context
 
 
-class QueueManager(UserDict, Dict[str, 'Queue']):
+class QueueManager(Dict[str, Queue]):
     """easy access queues for all producers and consumers"""
 
     def __init__(self, context: 'Context', **kwargs: dict):
@@ -21,6 +20,5 @@ class QueueManager(UserDict, Dict[str, 'Queue']):
 
     def new(self, name):
         self.logger.info('Creating new queue: %s...', name)
-        queue = Queue()
-        self[name] = queue
-        return queue
+        self[name] = Queue()
+        return self[name]

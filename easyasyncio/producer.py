@@ -32,6 +32,10 @@ class Producer(BaseAsyncioObject, metaclass=abc.ABCMeta):
                 self.queue.task_done()
                 self.results.append(await self.postprocess(result))
 
+    async def queue_finished(self):
+        for _ in self.tasks:
+            await self.queue.put(False)
+
     async def run(self):
         try:
             self.status('populating queue')
