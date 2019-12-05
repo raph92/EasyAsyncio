@@ -10,7 +10,7 @@ class WithSessionProducer(Producer):
         super().__init__(data, **kwargs)
 
     async def fill_queue(self):
-        """override this abstract class to fill the queue"""
+        """override this abstract method to fill the queue"""
         for i in range(0, self.data):
             await self.queue.put(i)
 
@@ -29,8 +29,8 @@ class WithSessionProducer(Producer):
     def name(self):
         """
         Name the object or service being provided.
-        This will effect how the DataHandler displays information about
-        this Prosumer.
+        This will effect how the StatsDisplay displays information about
+        this AsyncWorker.
         """
         return 'parse_request'
 

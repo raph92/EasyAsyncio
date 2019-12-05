@@ -20,7 +20,7 @@ class CharConsumer(Consumer):
     def name(self):
         """
         Name the object or service being provided.
-        This will effect how the DataHandler displays information about
+        This will effect how the StatsDisplay displays information about
         this Prosumer.
         """
         return 'consume_char'
