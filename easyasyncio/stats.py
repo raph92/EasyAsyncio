@@ -28,8 +28,8 @@ class Stats(Counter):
     def get_count_strings(self):
         string = '\n'
         for k, v in self.items():
-            string += f'\t\t\t    {k} success count: {v}\n'
-            string += f'\t\t\t    {k}\'s processed per second: {v / self.elapsed_time}\n'
+            string += f'\t\t\t    {k} count: {v}\n'
+            string += f'\t\t\t    {k}\'s count per second: {v / self.elapsed_time}\n'
         for p in self.context.workers:
             from .consumer import Consumer
             if isinstance(p, Consumer):
@@ -65,7 +65,6 @@ class StatsDisplay:
         while self.context.running:
             if not self.context.loop_manager.running:
                 break
-            logger.debug(self.context.stats.get_stats_string())
-            logger.debug(self.context.data.get_data_string())
+            logger.debug('---------------------SESSION---------------------\n%s', self.context.stats.get_stats_string())
+            logger.debug('---------------------TOTALS---------------------\n%s', self.context.data.get_data_string())
             await asyncio.sleep(self.interval)
-

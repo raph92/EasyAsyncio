@@ -37,6 +37,7 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
             await self.queue.put(False)
 
     async def run(self):
+        self.logger.info('%s starting...', self.name)
         try:
             self.status('populating queue')
             await self.fill_queue()
@@ -45,7 +46,6 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
             self.logger.exception(e)
             raise e
         else:
-            self.logger.info('%s starting...', self.name)
             self.status('creating workers')
             for _ in range(self.max_concurrent):
                 self.tasks.add(asyncio.ensure_future(self.worker(_)))
