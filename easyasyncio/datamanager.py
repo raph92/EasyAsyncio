@@ -25,14 +25,17 @@ def _numericize(loaded_data):
 class DataManager(UserDict):
     filemanager = FileManager()
     directory = '.'
+    do_not_display_list = []  # data items not to show
 
     def __init__(self, *args, **kwargs: dict) -> None:
         super().__init__(*args, **kwargs)
 
-    def register(self, name, initial_data, path=directory):
+    def register(self, name, initial_data, path=directory, ignore=False):
         """
         Register and load a data file. This file will be accessible to every AsyncWorker through context.data[name]
         """
+        if ignore:
+            self.do_not_display_list.append(name)
         loaded_data = None
         file_path, file_name = os.path.split(path)
         self.filemanager.register_file(file_name, file_path, short_name=name)
@@ -58,6 +61,8 @@ class DataManager(UserDict):
     def get_data_string(self):
         string = '\n'
         for k, v in self.items():
+            if k in self.do_not_display_list:
+                continue
             # only print the length of iterable values
             if isinstance(v, Sized) and not isinstance(v, str):
                 string += f'\t\t\t    {k} count: {len(v)}\n'
