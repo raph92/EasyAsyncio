@@ -65,7 +65,7 @@ class StatsDisplay:
         while self.context.running:
             if not self.context.loop_manager.running:
                 break
-            logger.debug('---------------------SESSION---------------------\n%\n',
+            logger.debug('---------------------SESSION---------------------\n%s\n',
                          self.context.stats.get_stats_string())
             logger.debug('---------------------TOTALS---------------------\n%s\n', self.context.data.get_data_string())
             await asyncio.sleep(self.interval)
