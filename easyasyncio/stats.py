@@ -56,7 +56,8 @@ class StatsDisplay:
     def __init__(self, context: 'Context') -> None:
         super().__init__()
         self.context = context
-        del self.context.stats_thread
+        if self.context.stats_thread:
+            del self.context.stats_thread
         self.context.stats_thread = self
 
     async def run(self) -> None:
