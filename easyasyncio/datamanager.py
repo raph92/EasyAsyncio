@@ -30,11 +30,12 @@ class DataManager(UserDict):
     def __init__(self, *args, **kwargs: dict) -> None:
         super().__init__(*args, **kwargs)
 
-    def register(self, name, initial_data, path=directory, ignore=False):
+    def register(self, name, initial_data, path=directory, display=True):
         """
         Register and load a data file. This file will be accessible to every AsyncWorker through context.data[name]
         """
-        if ignore:
+        # whether to display this key's value in get_data_string()
+        if not display:
             self.do_not_display_list.append(name)
         loaded_data = None
         file_path, file_name = os.path.split(path)
