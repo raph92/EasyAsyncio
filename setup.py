@@ -13,7 +13,7 @@ setup(
         'logzero',
         'aiohttp',
         'requests',
-        'easyfilemanager @ https://github.com/RaphaelNanje/easyfilemanager/archive/0.0.1.tar.gz'
+        'easyfilemanager @ https://github.com/RaphaelNanje/easyfilemanager/archive/0.0.1.tar.gz#egg=easyfilemanager'
     ],
     python_requies='~=3.6'
 )
