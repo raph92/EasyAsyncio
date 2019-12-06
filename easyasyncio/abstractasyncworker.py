@@ -18,6 +18,7 @@ class AbstractAsyncWorker(abc.ABC):
     successor: 'AbstractAsyncWorker' = None
     _done = False
     results = []
+    stats = set()
     _status = ''
 
     def __init__(self, max_concurrent=10) -> None:
@@ -28,8 +29,11 @@ class AbstractAsyncWorker(abc.ABC):
     def queue(self) -> Queue:
         return self.context.queues.get(self.name)
 
-    def increment_stat(self, n=1):
+    def increment_stat(self, n=1, name=None):
         """increment the count of whatever this prosumer is processing"""
+        if not name:
+            name = self.name
+        self.stats.add(name)
         self.context.stats[self.name] += n
 
     def initialize(self, context: Context):

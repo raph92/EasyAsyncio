@@ -31,6 +31,8 @@ class Stats(Counter):
         string += '\n\t\t\t\t    elapsed time: {time:.6f} secs\n'.format(time=self.elapsed_time)
         if self.items():
             for k, v in self.items():
+                if k in [s for p in self.context.workers for s in p.stats]:
+                    continue
                 string += f'\t\t\t\t    {k} count: {v}\n'
                 string += f'\t\t\t\t    {k}\'s count per second: {v / self.elapsed_time}\n'
         string += '\t\t\t    </-----STATS----->\n\n'
@@ -44,6 +46,10 @@ class Stats(Counter):
                 string += f'\t\t\t\t    {p.name} queue: {p.queue.qsize()} items left\n'
             string += f'\t\t\t\t    {p.name} workers: {p.max_concurrent}\n'
             string += f'\t\t\t\t    {p.name} status: {p._status}\n'
+            for s in p.stats:
+                string += f'\t\t\t\t    {s} count: {self[s]}\n'
+                string += f'\t\t\t\t    {s}\'s count per second: {self[s] / self.elapsed_time}\n'
+
             i = 1 if len(top_worker_section_string) % 2 != 0 else 4
             string += (f'\t\t\t    </'
                        f'{"-" * int((len(top_worker_section_string) / 3 - i))}'
