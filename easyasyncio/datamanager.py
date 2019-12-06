@@ -41,9 +41,13 @@ class DataManager(UserDict):
             self.do_not_display_list.append(name)
         loaded_data = None
         file_path, file_name = os.path.split(path)
+        _, file_type = os.path.splitext(file_name)
         self.filemanager.register_file(file_name, file_path, short_name=name)
         if self.filemanager.exists(name):
             loaded_data = self.filemanager.smart_load(name)
+            if loaded_data and file_type == '.yaml':
+                loaded_data = loaded_data[0]
+
         self[name] = initial_data
         if loaded_data:
             data = self[name]
