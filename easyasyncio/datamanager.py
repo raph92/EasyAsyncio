@@ -43,7 +43,7 @@ class DataManager(UserDict):
         if self.filemanager.exists(name):
             loaded_data = self.filemanager.smart_load(name)
         self[name] = initial_data
-        if type and loaded_data:
+        if loaded_data:
             data = self[name]
             if isinstance(loaded_data, Iterable):
                 new_iterable = _numericize(loaded_data)
