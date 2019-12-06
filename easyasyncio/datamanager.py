@@ -46,7 +46,7 @@ class DataManager(UserDict):
         if self.filemanager.exists(name):
             loaded_data = self.filemanager.smart_load(name)
             if loaded_data and file_type == '.yaml':
-                loaded_data = loaded_data[0]
+                loaded_data = loaded_data
 
         self[name] = initial_data
         if loaded_data:
