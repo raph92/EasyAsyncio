@@ -45,13 +45,11 @@ class DataManager(UserDict):
         self.filemanager.register_file(file_name, file_path, short_name=name)
         if self.filemanager.exists(name):
             loaded_data = self.filemanager.smart_load(name)
-            if loaded_data and file_type == '.yaml':
-                loaded_data = loaded_data
 
         self[name] = initial_data
         if loaded_data:
             data = self[name]
-            if isinstance(loaded_data, Iterable):
+            if isinstance(loaded_data, Iterable) and not isinstance(loaded_data, dict):
                 new_iterable = _numericize(loaded_data)
                 loaded_data = new_iterable
             if isinstance(data, set):
