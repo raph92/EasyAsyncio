@@ -36,14 +36,19 @@ class Stats(Counter):
         string += '\t\t\t    </-----STATS----->\n\n'
         for p in self.context.workers:
             from .consumer import Consumer
-            string += '\t\t\t    <-----WORKERS----->\n'
+            top_worker_section_string = f'<-----WORKER {p.name}----->\n'
+            string += '\t\t\t    ' + top_worker_section_string
             if isinstance(p, Consumer):
                 string += f'\t\t\t    {p.name} queue: {p.working + p.queue.qsize()} items left\n'
             else:
                 string += f'\t\t\t    {p.name} queue: {p.queue.qsize()} items left\n'
             string += f'\t\t\t    {p.name} workers: {p.max_concurrent}\n'
             string += f'\t\t\t    {p.name} status: {p._status}\n'
-            string += '\t\t\t    </-----WORKERS----->\n\n'
+            i = 1 if len(top_worker_section_string) % 2 != 0 else 4
+            string += (f'\t\t\t    </'
+                       f'{"-" * int((len(top_worker_section_string) / 3 - i))}'
+                       f'WORKER'
+                       f'{"-" * int((len(top_worker_section_string) / 3))}----->\n\n')
         return string.rstrip()
 
     def get_stats_string(self):
