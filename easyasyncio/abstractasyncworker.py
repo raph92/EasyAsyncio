@@ -1,7 +1,7 @@
 import abc
 from abc import abstractmethod
 from asyncio import AbstractEventLoop, Semaphore, Future, Queue
-from typing import Set
+from typing import Set, Optional
 
 from . import logger
 from .context import Context
@@ -15,15 +15,15 @@ class AbstractAsyncWorker(abc.ABC):
     logger = logger
     loop: AbstractEventLoop
     sem: Semaphore
-    successor: 'AbstractAsyncWorker' = None
-    _done = False
-    results = []
-    stats = set()
-    _status = ''
 
     def __init__(self, max_concurrent=10) -> None:
         self.tasks = set()
         self.max_concurrent = max_concurrent
+        self.stats = set()
+        self.results = []
+        self._done = False
+        self.successor: 'Optional[AbstractAsyncWorker]' = None
+        self._status = ''
 
     @property
     def queue(self) -> Queue:
