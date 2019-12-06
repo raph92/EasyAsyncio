@@ -16,6 +16,9 @@ class LoopManager:
     The vision is that this class will handle the top level task gathering, run_until_complete, etc
     """
     running = True
+    shutting_down = False
+    cancelling_all_tasks = False
+    post_saving = False
     worker_tasks: Set[Future] = set()
     scheduled_tasks: Set[Future] = set()
     session: ClientSession
@@ -63,7 +66,10 @@ class LoopManager:
             self.worker_tasks.add(t)
 
     def stop(self):
+        if self.shutting_down:
+            return
         logger.info('Ending program...')
+        self.shutting_down = True
         self.running = False
         logger.info(self.context.stats.get_stats_string())
         logger.info(self.context.data.get_data_string())
@@ -76,6 +82,9 @@ class LoopManager:
             self.post_shutdown()
 
     def cancel_all_tasks(self, _, _2):
+        if self.cancelling_all_tasks:
+            return
+        self.cancelling_all_tasks = True
         logger.info('Cancelling all tasks, this may take a moment...')
         # logger.warning('The program may or may not close immediately, this is a known bug and I am working on a fix')
         for worker in self.context.workers:
@@ -95,6 +104,9 @@ class LoopManager:
                 task.cancel()
 
     def post_shutdown(self):
+        if self.post_saving:
+            return
+        self.post_saving = True
         if self.context.save_thread:
             t = asyncio.ensure_future(self.context.save_thread.save_func())
             logger.debug('post_shutdown saving started')
