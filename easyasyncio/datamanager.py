@@ -81,6 +81,8 @@ class DataManager(UserDict):
         try:
             for i in self:
                 if i in self.filemanager:
-                    self.filemanager.smart_save(i, self.get(i))
+                    get = self.get(i)
+                    if get:
+                        self.filemanager.smart_save(i, get)
         except Exception as e:
             logger.exception(e)

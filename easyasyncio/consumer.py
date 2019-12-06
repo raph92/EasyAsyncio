@@ -1,5 +1,6 @@
 import asyncio
 from abc import ABC
+from asyncio import CancelledError
 
 from .abstractasyncworker import AbstractAsyncWorker
 from .producer import Producer
@@ -35,8 +36,9 @@ class Consumer(AbstractAsyncWorker, ABC):
                 self.status('waiting for queue object')
                 try:
                     data = await self.queue.get()
-                except RuntimeError:
+                except (RuntimeError, CancelledError):
                     return
+
                 else:
                     if data is False:
                         self.logger.debug('%s finished creating tasks', self.name)

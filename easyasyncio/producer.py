@@ -1,6 +1,7 @@
 import abc
 import asyncio
 from abc import abstractmethod
+from asyncio import CancelledError
 
 from .abstractasyncworker import AbstractAsyncWorker
 
@@ -21,7 +22,10 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
         """get each item from the queue and pass it to self.work"""
         self.logger.debug('%s worker %s started', self.name, num)
         while self.context.running:
-            data = await self.queue.get()
+            try:
+                data = await self.queue.get()
+            except (RuntimeError, CancelledError):
+                return
             if data is False:
                 self.logger.debug('%s worker %s terminating', self.name, num)
                 break
