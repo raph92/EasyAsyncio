@@ -27,22 +27,31 @@ class Stats(Counter):
 
     def get_count_strings(self):
         string = '\n'
-        for k, v in self.items():
-            string += f'\t\t\t    {k} count: {v}\n'
-            string += f'\t\t\t    {k}\'s count per second: {v / self.elapsed_time}\n'
+        string += '\t\t\t    <-----STATS----->'
+        string += '\n\t\t\t    elapsed time: {time:.6f} secs\n'.format(time=self.elapsed_time)
+        if self.items():
+            for k, v in self.items():
+                string += f'\t\t\t    {k} count: {v}\n'
+                string += f'\t\t\t    {k}\'s count per second: {v / self.elapsed_time}\n'
+        string += '\t\t\t    </-----STATS----->\n\n'
         for p in self.context.workers:
             from .consumer import Consumer
+            string += '\t\t\t    <-----WORKERS----->\n'
             if isinstance(p, Consumer):
                 string += f'\t\t\t    {p.name} queue: {p.working + p.queue.qsize()} items left\n'
             else:
                 string += f'\t\t\t    {p.name} queue: {p.queue.qsize()} items left\n'
             string += f'\t\t\t    {p.name} workers: {p.max_concurrent}\n'
+            string += f'\t\t\t    {p.name} status: {p._status}\n'
+            string += '\t\t\t    </-----WORKERS----->\n\n'
         return string.rstrip()
 
     def get_stats_string(self):
-        return '\n\t\t\t    elapsed time: {time:.6f} secs'.format(
-            time=self.elapsed_time
-        ) + self.get_count_strings()
+        string = '\n\t\t    <---------------------SESSION STATS--------------------->'
+        string += self.get_count_strings()
+        string += '\n\t\t    </---------------------SESSION STATS--------------------->\n'
+
+        return string
 
     @property
     def elapsed_time(self):
@@ -63,9 +72,7 @@ class StatsDisplay:
     async def run(self) -> None:
         logger.debug('%s starting...', self.name)
         while self.context.running:
-            logger.debug('---------------------SESSION---------------------\n%s\n',
-                         self.context.stats.get_stats_string())
-            logger.debug('---------------------TOTALS---------------------\n%s\n', self.context.data.get_data_string())
+            logger.debug('%s\n', self.context.stats.get_stats_string() + self.context.data.get_data_string())
             await asyncio.sleep(self.interval)
             if not self.context.running:
                 break

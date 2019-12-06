@@ -18,6 +18,7 @@ class AbstractAsyncWorker(abc.ABC):
     successor: 'AbstractAsyncWorker' = None
     _done = False
     results = []
+    _status = ''
 
     def __init__(self, max_concurrent=10) -> None:
         self.tasks = set()
@@ -56,8 +57,7 @@ class AbstractAsyncWorker(abc.ABC):
         pass
 
     def status(self, *strings: str):
-        self.context.data[f'{self.name}\'s status'] = ' '.join(
-            [str(s) if not isinstance(s, str) else s for s in strings])
+        self._status = ' '.join([str(s) if not isinstance(s, str) else s for s in strings])
 
     async def tear_down(self):
         """this is called after all tasks are completed"""

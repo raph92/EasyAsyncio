@@ -33,5 +33,5 @@ class AutoSave:
                 logger.exception(e)
 
     def save_func(self):
-        logger.info('saving all data...')
+        logger.info('autosaving...')
         self.context.data.save()

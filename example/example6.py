@@ -12,7 +12,7 @@ class AutoSaveExample(Consumer):
         super().__init__(**kwargs)
 
     async def fill_queue(self):
-        for i in range(100):
+        for i in range(10000):
             if i not in self.context.data['numbers']:
                 await self.queue.put(i)
         await self.queue_finished()

@@ -60,15 +60,15 @@ class DataManager(UserDict):
         self[name] = data
 
     def get_data_string(self):
-        string = '\n'
+        string = ''
+        string += '\n\t\t    <----------------------TOTALS---------------------------->\n'
         for k, v in self.items():
             if k in self.do_not_display_list:
                 continue
             # only print the length of iterable values
             if isinstance(v, Sized) and not isinstance(v, str):
                 string += f'\t\t\t    {k} count: {len(v)}\n'
-            else:
-                string += f'\t\t\t    {k}: {v}\n'
+        string += '\t\t    </---------------------TOTALS---------------------------->\n'
         return string.rstrip()
 
     def save(self):
