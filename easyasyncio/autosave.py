@@ -26,12 +26,12 @@ class AutoSave:
                 await asyncio.sleep(self.interval)
                 if not self.context.running:
                     break
-                self.save_func()
+                await self.save_func()
             except (RuntimeError, CancelledError):
                 pass
             except Exception as e:
                 logger.exception(e)
 
-    def save_func(self):
+    async def save_func(self):
         logger.info('autosaving...')
-        self.context.data.save()
+        await self.context.data.save()

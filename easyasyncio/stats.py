@@ -28,22 +28,22 @@ class Stats(Counter):
     def get_count_strings(self):
         string = '\n'
         string += '\t\t\t    <-----STATS----->'
-        string += '\n\t\t\t    elapsed time: {time:.6f} secs\n'.format(time=self.elapsed_time)
+        string += '\n\t\t\t\t    elapsed time: {time:.6f} secs\n'.format(time=self.elapsed_time)
         if self.items():
             for k, v in self.items():
-                string += f'\t\t\t    {k} count: {v}\n'
-                string += f'\t\t\t    {k}\'s count per second: {v / self.elapsed_time}\n'
+                string += f'\t\t\t\t    {k} count: {v}\n'
+                string += f'\t\t\t\t    {k}\'s count per second: {v / self.elapsed_time}\n'
         string += '\t\t\t    </-----STATS----->\n\n'
         for p in self.context.workers:
             from .consumer import Consumer
             top_worker_section_string = f'<-----WORKER {p.name}----->\n'
             string += '\t\t\t    ' + top_worker_section_string
             if isinstance(p, Consumer):
-                string += f'\t\t\t    {p.name} queue: {p.working + p.queue.qsize()} items left\n'
+                string += f'\t\t\t\t    {p.name} queue: {p.working + p.queue.qsize()} items left\n'
             else:
-                string += f'\t\t\t    {p.name} queue: {p.queue.qsize()} items left\n'
-            string += f'\t\t\t    {p.name} workers: {p.max_concurrent}\n'
-            string += f'\t\t\t    {p.name} status: {p._status}\n'
+                string += f'\t\t\t\t    {p.name} queue: {p.queue.qsize()} items left\n'
+            string += f'\t\t\t\t    {p.name} workers: {p.max_concurrent}\n'
+            string += f'\t\t\t\t    {p.name} status: {p._status}\n'
             i = 1 if len(top_worker_section_string) % 2 != 0 else 4
             string += (f'\t\t\t    </'
                        f'{"-" * int((len(top_worker_section_string) / 3 - i))}'

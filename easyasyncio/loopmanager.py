@@ -23,7 +23,7 @@ class LoopManager:
     def __init__(self, auto_save=True):
         self.auto_save = auto_save
         self.loop = asyncio.get_event_loop()
-        self.loop.set_debug(True)
+        # self.loop.set_debug(True)
         self.context = Context(self)
         signal.signal(signal.SIGINT, self.cancel_all_tasks)
         signal.signal(signal.SIGTERM, self.cancel_all_tasks)
@@ -96,4 +96,7 @@ class LoopManager:
 
     def post_shutdown(self):
         if self.context.save_thread:
-            self.context.save_thread.save_func()
+            t = asyncio.ensure_future(self.context.save_thread.save_func())
+            logger.debug('post_shutdown saving started')
+            self.loop.run_until_complete(t)
+            logger.debug('post_shutdown saving finished')

@@ -4,6 +4,8 @@ from typing import Sized, Iterable
 
 from easyfilemanager import FileManager
 
+from easyasyncio import logger
+
 
 def _numericize(loaded_data):
     """
@@ -71,7 +73,10 @@ class DataManager(UserDict):
         string += '\t\t    </---------------------TOTALS---------------------------->\n'
         return string.rstrip()
 
-    def save(self):
-        for i in self:
-            if i in self.filemanager:
-                self.filemanager.smart_save(i, self.get(i))
+    async def save(self):
+        try:
+            for i in self:
+                if i in self.filemanager:
+                    self.filemanager.smart_save(i, self.get(i))
+        except Exception as e:
+            logger.exception(e)
