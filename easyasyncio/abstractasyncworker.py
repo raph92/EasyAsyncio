@@ -1,7 +1,8 @@
 import abc
 from abc import abstractmethod
 from asyncio import AbstractEventLoop, Semaphore, Future, Queue
-from typing import Set, Optional, List
+from collections import deque
+from typing import Set, Optional
 
 from .context import Context
 
@@ -23,7 +24,7 @@ class AbstractAsyncWorker(abc.ABC):
         self._done = False
         self.successor: 'Optional[AbstractAsyncWorker]' = None
         self._status = ''
-        self.logs: List[str] = list()
+        self.logs: deque = deque(maxlen=50)
         self.working = 0
 
     @property
