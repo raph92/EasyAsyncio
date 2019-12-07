@@ -21,6 +21,7 @@ class ConsumerNumberExample(Consumer):
         sum(list(range(number)))
         self.increment_stat()
         await asyncio.sleep(random.randint(1, 5))
+        self.logger('printed %s', number)
         return number
 
     async def tear_down(self):
@@ -49,6 +50,7 @@ class ExampleProducer(Producer):
         sum(list(range(num)))
         self.increment_stat()
         await asyncio.sleep(random.randint(1, 5))
+        self.logger('processed %s', num)
 
     async def tear_down(self):
         print(self.name, 'done at', datetime.datetime.now())
@@ -65,3 +67,5 @@ producer = ExampleProducer(1000, max_concurrent=5)
 
 manager.add_tasks(producer, consumer)
 manager.start()
+
+manager.start_graphics()

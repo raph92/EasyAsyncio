@@ -20,16 +20,16 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
 
     async def worker(self, num):
         """get each item from the queue and pass it to self.work"""
-        self.logger.debug('%s worker %s started', self.name, num)
+        self.logger('%s worker %s started', self.name, num)
         while self.context.running:
             try:
                 data = await self.queue.get()
             except (RuntimeError, CancelledError):
                 return
             if data is False:
-                self.logger.debug('%s worker %s terminating', self.name, num)
+                self.logger('%s worker %s terminating', self.name, num)
                 break
-            # self.logger.debug('%s worker %s retrieved queued data %s', self.name, num, data)
+            # self.logger('%s worker %s retrieved queued data %s', self.name, num, data)
             data = await self.preprocess(data)
             async with self.sem:
                 result = await self.work(data)
@@ -41,22 +41,22 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
             await self.queue.put(False)
 
     async def run(self):
-        self.logger.info('%s starting...', self.name)
+        self.logger('%s starting...', self.name)
         try:
             self.status('populating queue')
             await self.fill_queue()
-            self.logger.debug(self.name + ' finished populating queue')
+            self.logger(self.name + ' finished populating queue')
         except Exception as e:
-            self.logger.exception(e)
+            self.logger(str(e))
             raise e
         else:
             self.status('creating workers')
             for _ in range(self.max_concurrent):
-                self.tasks.add(asyncio.ensure_future(self.worker(_)))
-            self.logger.debug(self.name + ' finished creating workers')
-            self.status('awaiting tasks to finish')
+                self.tasks.add(self.loop.create_task(self.worker(_)))
+            self.logger(self.name + ' finished creating workers')
+            self.status('processing')
             await self.queue_finished()
-            await asyncio.gather(*self.tasks)
+            await asyncio.gather(*self.tasks, loop=self.loop)
             await self.tear_down()
             self.status('finished')
-            self.logger.info('%s is finished: %s', self.name, self.results)
+            self.logger('%s is finished: %s', self.name, self.results)

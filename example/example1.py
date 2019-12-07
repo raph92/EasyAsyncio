@@ -21,7 +21,7 @@ class PrintNumbersProducer(Producer):
         """
         sleep_time = random.randint(1, 3)
         await asyncio.sleep(sleep_time)
-        self.logger.info(number)
+        self.logger(number)
         self.increment_stat()
 
     @property
@@ -38,3 +38,5 @@ manager = LoopManager(False)
 
 manager.add_tasks(PrintNumbersProducer(1000, max_concurrent=15))
 manager.start()
+
+manager.start_graphics()

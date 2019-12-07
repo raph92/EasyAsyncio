@@ -23,7 +23,7 @@ class AutoSave:
         logger.debug('%s starting...', self.name)
         while self.context.running:
             try:
-                await asyncio.sleep(self.interval)
+                await asyncio.sleep(self.interval, loop=self.context.loop)
                 if not self.context.running:
                     break
                 await self.save_func()
@@ -33,5 +33,5 @@ class AutoSave:
                 logger.exception(e)
 
     async def save_func(self):
-        logger.info('autosaving...')
+        # logger.info('autosaving...')
         await self.context.data.save()

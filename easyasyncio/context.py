@@ -30,7 +30,6 @@ class Context:
     def __init__(self, loop_manager) -> None:
         self.stats = Stats(self)
         self.loop_manager = loop_manager
-        self.loop = self.loop_manager.loop
         self.queues = QueueManager(self)
         self.save_thread = AutoSave(self)
         self.stats_thread = StatsDisplay(self)
@@ -38,3 +37,7 @@ class Context:
     @property
     def running(self):
         return self.loop_manager.running
+
+    @property
+    def loop(self):
+        return self.loop_manager.loop

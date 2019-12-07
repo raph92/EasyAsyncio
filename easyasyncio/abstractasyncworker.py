@@ -1,9 +1,8 @@
 import abc
 from abc import abstractmethod
 from asyncio import AbstractEventLoop, Semaphore, Future, Queue
-from typing import Set, Optional
+from typing import Set, Optional, List
 
-from . import logger
 from .context import Context
 
 
@@ -12,9 +11,9 @@ class AbstractAsyncWorker(abc.ABC):
     tasks: Set[Future]
     max_concurrent: int
     context: Context
-    logger = logger
     loop: AbstractEventLoop
     sem: Semaphore
+
 
     def __init__(self, max_concurrent=10) -> None:
         self.tasks = set()
@@ -24,6 +23,8 @@ class AbstractAsyncWorker(abc.ABC):
         self._done = False
         self.successor: 'Optional[AbstractAsyncWorker]' = None
         self._status = ''
+        self.logs: List[str] = list()
+        self.working = 0
 
     @property
     def queue(self) -> Queue:
@@ -54,7 +55,7 @@ class AbstractAsyncWorker(abc.ABC):
 
     async def queue_finished(self):
         """called when all tasks are finished with queue"""
-        self.logger.debug(self.name + ' finished queueing')
+        self.logger(self.name + ' finished queueing')
         await self.queue.put(False)
 
     async def fill_queue(self):
@@ -97,3 +98,18 @@ class AbstractAsyncWorker(abc.ABC):
 
     def __str__(self):
         return self.name
+
+    def logger(self, string: str, *args):
+        from datetime import datetime
+        try:
+            string = string.replace('%s', '{}').format(*args)
+        except:
+            pass
+        message = f'[{datetime.now().time()}] {string}'
+        self.logs.append(message)
+        # logger.info(message)
+
+    def time_left(self):
+        elapsed_time = self.context.stats.elapsed_time
+        per_second = self.context.stats[self.name] / elapsed_time
+        return round(self.queue.qsize() / per_second)

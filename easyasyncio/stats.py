@@ -64,6 +64,7 @@ class Stats(Counter):
 
         return string
 
+
     @property
     def elapsed_time(self):
         return self.end_time - self.start_time
@@ -84,6 +85,6 @@ class StatsDisplay:
         logger.debug('%s starting...', self.name)
         while self.context.running:
             logger.debug('%s\n', self.context.stats.get_stats_string() + self.context.data.get_data_string())
-            await asyncio.sleep(self.interval)
+            await asyncio.sleep(self.interval, loop=self.context.loop)
             if not self.context.running:
                 break

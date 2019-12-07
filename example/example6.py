@@ -23,6 +23,7 @@ class AutoSaveExample(Consumer):
         self.increment_stat()
         await asyncio.sleep(random.randint(1, 5))
         self.context.data['numbers'].add(number)
+        self.logger('Processed %s', number)
 
     async def tear_down(self):
         print(self.name, 'done at', datetime.datetime.now())
@@ -44,3 +45,5 @@ manager.context.data.register('numbers', set(), './numbers/numbers.txt')
 
 manager.add_tasks(consumer)
 manager.start()
+
+manager.start_graphics()

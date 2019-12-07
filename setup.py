@@ -13,7 +13,8 @@ setup(
         'logzero',
         'aiohttp',
         'requests',
-        'easyfilemanager @ git+ssh://git@github.com/RaphaelNanje/easyfilemanager.git#egg=easyfilemanager'
+        'easyfilemanager @ git+ssh://git@github.com/RaphaelNanje/easyfilemanager.git#egg=easyfilemanager',
+        'asciimatics'
     ],
     python_requies='~=3.6'
 )

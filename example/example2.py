@@ -22,7 +22,7 @@ class WithSessionProducer(Producer):
                 headers=Constants.HEADERS
         ) as response:
             text = await response.read()
-            self.logger.info(text)
+            self.logger(str(text))
         self.increment_stat()
 
     @property
@@ -35,7 +35,9 @@ class WithSessionProducer(Producer):
         return 'parse_request'
 
 
-manager = LoopManager(auto_save=False)
+manager = LoopManager(auto_save=False, use_session=True)
 manager.add_tasks(WithSessionProducer(100, max_concurrent=15))
 
-manager.start(use_session=True)
+manager.start()
+
+manager.start_graphics()

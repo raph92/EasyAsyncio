@@ -8,7 +8,6 @@ from .producer import Producer
 
 class Consumer(AbstractAsyncWorker, ABC):
     proceeded_by: Producer  # what producer will be started by this Consumer
-    working = 0
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -28,7 +27,7 @@ class Consumer(AbstractAsyncWorker, ABC):
 
     async def run(self):
         """fill the queue for the worker then start it"""
-        self.logger.info('%s starting...', self.name)
+        self.logger('%s starting...', self.name)
         self.status('starting')
         await self.fill_queue()
         try:
@@ -41,16 +40,16 @@ class Consumer(AbstractAsyncWorker, ABC):
 
                 else:
                     if data is False:
-                        self.logger.debug('%s finished creating tasks', self.name)
+                        self.logger('%s finished creating tasks', self.name)
                         self._done = True
                         break
                     self.status('creating worker for', data)
-                    task = asyncio.ensure_future(self.worker(data))
+                    task = self.loop.create_task(self.worker(data))
                     self.tasks.add(task)
         except Exception as e:
-            self.logger.exception(e)
-        self.status('finished with queue. Waiting for tasks to finish')
-        await asyncio.gather(*self.tasks)
+            self.logger(str(e))
+        self.status('processing')
+        await asyncio.gather(*self.tasks, loop=self.loop)
         await self.tear_down()
         self.status('finished')
-        self.logger.info('%s is finished: %s', self.name, self.results)
+        self.logger('%s is finished: %s', self.name, self.results)

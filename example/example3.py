@@ -53,4 +53,4 @@ producer = ExampleProducer(100)
 consumer.max_concurrent = 5
 manager.add_tasks(consumer, producer)
 
-manager.start()
+manager.run()
