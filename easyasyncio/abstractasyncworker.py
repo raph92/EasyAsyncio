@@ -35,7 +35,7 @@ class AbstractAsyncWorker(abc.ABC):
         if not name:
             name = self.name
         self.stats.add(name)
-        self.context.stats[self.name] += n
+        self.context.stats[name] += n
 
     def initialize(self, context: Context):
         self.context = context
