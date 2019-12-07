@@ -43,7 +43,7 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
     async def run(self):
         self.logger('%s starting...', self.name)
         try:
-            self.status('populating queue')
+            self.status('filling queue')
             await self.fill_queue()
             self.logger(self.name + ' finished populating queue')
         except Exception as e:

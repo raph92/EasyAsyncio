@@ -105,7 +105,7 @@ class AbstractAsyncWorker(abc.ABC):
             string = string.replace('%s', '{}').format(*args)
         except:
             pass
-        message = f'[{datetime.now().time()}] {string}'
+        message = f'[{datetime.now().strftime("%H:%M:%S")}] {string}'
         self.logs.append(message)
         # logger.info(message)
 
