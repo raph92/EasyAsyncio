@@ -32,7 +32,7 @@ class DataManager(UserDict):
     def __init__(self, *args, **kwargs: dict) -> None:
         super().__init__(*args, **kwargs)
 
-    def register(self, name, initial_data, path=directory, display=True):
+    def register(self, name, initial_data, path_to_file=directory, display=True):
         """
         Register and load a data file. This file will be accessible to every AsyncWorker through context.data[name]
         """
@@ -40,7 +40,9 @@ class DataManager(UserDict):
         if not display:
             self.do_not_display_list.append(name)
         loaded_data = None
-        file_path, file_name = os.path.split(path)
+        file_path, file_name = os.path.split(path_to_file)
+        if not file_path:
+            file_path = '.'
         _, file_type = os.path.splitext(file_name)
         self.filemanager.register_file(file_name, file_path, short_name=name)
         if self.filemanager.exists(name):
