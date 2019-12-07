@@ -161,13 +161,16 @@ def demo(screen, manager: 'LoopManager'):
         worker_details.freeze = True
 
     def on_input(event: KeyboardEvent):
-        if event.key_code == 113:
-            if worker_details.status == 'Stopping...':
-                exit(0)
-            manager.stop()
-            screen.force_update()
-        if event.key_code == 115:
-            manager.save()
+        try:
+            if event.key_code == 113:
+                if worker_details.status == 'Stopping...':
+                    exit(0)
+                manager.stop()
+                screen.force_update()
+            if event.key_code == 115:
+                manager.save()
+        except AttributeError:
+            exit()
 
     while manager.running:
         try:
