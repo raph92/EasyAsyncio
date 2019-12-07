@@ -1,6 +1,7 @@
 import asyncio
 from abc import ABC
 from asyncio import CancelledError
+from time import time
 
 from .abstractasyncworker import AbstractAsyncWorker
 from .producer import Producer
@@ -36,8 +37,8 @@ class Consumer(AbstractAsyncWorker, ABC):
                 try:
                     data = await self.queue.get()
                 except (RuntimeError, CancelledError):
+                    self.status('Stopped')
                     return
-
                 else:
                     if data is False:
                         self.logger('%s finished creating tasks', self.name)
@@ -48,8 +49,11 @@ class Consumer(AbstractAsyncWorker, ABC):
                     self.tasks.add(task)
         except Exception as e:
             self.logger(str(e))
+            self.status('Stopped')
+
         self.status('processing')
         await asyncio.gather(*self.tasks, loop=self.loop)
         await self.tear_down()
+        self.end_time = time()
         self.status('finished')
         self.logger('%s is finished: %s', self.name, self.results)

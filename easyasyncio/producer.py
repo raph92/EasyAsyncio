@@ -2,6 +2,7 @@ import abc
 import asyncio
 from abc import abstractmethod
 from asyncio import CancelledError
+from time import time
 
 from .abstractasyncworker import AbstractAsyncWorker
 
@@ -58,5 +59,6 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
             await self.queue_finished()
             await asyncio.gather(*self.tasks, loop=self.loop)
             await self.tear_down()
+            self.end_time = time()
             self.status('finished')
             self.logger('%s is finished: %s', self.name, self.results)

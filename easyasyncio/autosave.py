@@ -1,5 +1,6 @@
 import asyncio
 from asyncio import CancelledError
+from time import time
 from typing import TYPE_CHECKING
 
 from . import logger
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
 class AutoSave:
     name = 'AutoSave'
     interval = 10
+    _last_saved = time()
 
     def __init__(self, context: 'Context') -> None:
         super().__init__()
@@ -35,3 +37,8 @@ class AutoSave:
     async def save_func(self):
         # logger.info('autosaving...')
         await self.context.data.save()
+        self._last_saved = time()
+
+    @property
+    def last_saved(self):
+        return time() - self._last_saved

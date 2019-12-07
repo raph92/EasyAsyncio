@@ -25,6 +25,7 @@ class LoopManager(Thread):
     scheduled_tasks: Set[Future] = set()
     session: ClientSession
     loop: AbstractEventLoop = None
+    status = 'Starting...'
 
     def __init__(self, auto_save=True, use_session=False):
         super().__init__()
@@ -50,6 +51,7 @@ class LoopManager(Thread):
                 self.scheduled_tasks.add(self.loop.create_task(self.context.save_thread.run()))
             self.scheduled_tasks.add(self.loop.create_task(self.context.stats_thread.run()))
             self.context.stats.start_time = time.time()
+            self.status = 'Running'
             if self.use_session:
                 self.loop.run_until_complete(self.use_with_session())
             else:
@@ -65,8 +67,9 @@ class LoopManager(Thread):
             self.context.stats._end_time = time.time()
             self.stop()
             if succeeded:
-                pass
-                # print('Success! All tasks have completed!')
+                self.status = 'Finished'
+
+            # print('Success! All tasks have completed!')
 
     async def use_with_session(self):
         async with ClientSession(loop=self.loop) as session:
@@ -84,10 +87,9 @@ class LoopManager(Thread):
         if self.shutting_down:
             return
         # logger.info('Ending program...')
+        if self.status != 'Finished':
+            self.status = 'Stopping...'
         self.shutting_down = True
-        # self.running = False
-        # logger.info(self.context.stats.get_stats_string())
-        # logger.info(self.context.data.get_data_string())
         try:
             self.cancel_all_tasks(None, None)
             for task in self.scheduled_tasks:
@@ -96,13 +98,14 @@ class LoopManager(Thread):
             pass
         finally:
             self.post_shutdown()
+            for worker in self.context.workers:
+                worker.logger('finished' if self.finished else 'manually stopped')
+                worker.status('finished' if self.finished else 'manually stopped')
 
     def cancel_all_tasks(self, _, _2):
         if self.cancelling_all_tasks:
             return
         self.cancelling_all_tasks = True
-        # logger.info('Cancelling all tasks, this may take a moment...')
-        # logger.warning('The program may or may not close immediately, this is a known bug and I am working on a fix')
         for worker in self.context.workers:
             worker.queue.put_nowait(False)
             for task in worker.tasks:
@@ -120,13 +123,19 @@ class LoopManager(Thread):
                 task.cancel()
 
     def post_shutdown(self):
-        if self.post_saving:
-            return
-        self.post_saving = True
-        if self.context.save_thread:
-            t = self.loop.create_task(self.context.save_thread.save_func())
-            # logger.debug('post_shutdown saving started')
-            self.loop.run_until_complete(t)
+        try:
+            if self.post_saving:
+                return
+            self.post_saving = True
+            if self.context.save_thread:
+                t = self.loop.create_task(self.context.save_thread.save_func())
+                # logger.debug('post_shutdown saving started')
+                self.loop.run_until_complete(t)
+        except:
+            pass
+        finally:
+            if self.status == 'Stopping...':
+                self.status = 'Shutdown'
             # logger.debug('post_shutdown saving finished')
 
     def save(self):

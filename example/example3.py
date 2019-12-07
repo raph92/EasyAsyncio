@@ -12,7 +12,7 @@ class ConsumerNumberExample(Consumer):
     async def work(self, number):
         """this logic gets called after an object is retrieved from the queue"""
         await asyncio.sleep(1)
-        self.logger.info(number)
+        self.logger(number)
         self.increment_stat()
 
     @property
@@ -50,7 +50,10 @@ class ExampleProducer(Producer):
 manager = LoopManager(False)
 consumer = ConsumerNumberExample()
 producer = ExampleProducer(100)
+producer.add_successor(consumer)
 consumer.max_concurrent = 5
 manager.add_tasks(consumer, producer)
 
-manager.run()
+manager.start()
+
+manager.start_graphics()

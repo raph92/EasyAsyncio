@@ -13,7 +13,7 @@ class AbstractAsyncWorker(abc.ABC):
     context: Context
     loop: AbstractEventLoop
     sem: Semaphore
-
+    end_time = None
 
     def __init__(self, max_concurrent=10) -> None:
         self.tasks = set()
@@ -112,4 +112,4 @@ class AbstractAsyncWorker(abc.ABC):
     def time_left(self):
         elapsed_time = self.context.stats.elapsed_time
         per_second = self.context.stats[self.name] / elapsed_time
-        return round(self.queue.qsize() / per_second)
+        return round((self.queue.qsize() + self.working) / per_second)
