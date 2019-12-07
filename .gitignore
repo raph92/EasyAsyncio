@@ -127,3 +127,5 @@ dmypy.json
 
 /venv37/
 /.idea/
+/venv36/
+/example/numbers/
