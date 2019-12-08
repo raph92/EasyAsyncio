@@ -96,6 +96,8 @@ class WorkerDetails(widgets.Frame):
         stat_list.append(('-' * 10, len(stat_list)))
         stat_list.append(('', len(stat_list)))
         for name, stat in self.manager.context.data.items():
+            if name in self.manager.context.data.do_not_display_list:
+                continue
             if isinstance(stat, Iterable) and isinstance(stat, Sized):
                 stat = len(stat)
             stat_list.append((f'{name}: {stat}', len(stat_list)))
