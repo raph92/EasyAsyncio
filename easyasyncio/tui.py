@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Iterable, Sized
 
 import asciimatics.widgets as widgets
 from asciimatics.event import KeyboardEvent
+from asciimatics.exceptions import ResizeScreenError
 from asciimatics.scene import Scene
 from asciimatics.screen import Screen, _CursesScreen
 
@@ -187,29 +188,27 @@ def demo(screen, manager: 'LoopManager'):
             if event.key_code == 115:
                 manager.save()
         except AttributeError:
-            sys.exit(0)
+            pass
         except Exception as e_:
-            logger.exception(e_)
             WorkerDetails.error = str(e_)
 
-    while manager.running:
-        try:
-            worker_details = WorkerDetails(screen, manager)
-            scenes = [
-                Scene([worker_details], -1, name="Main"),
-                # Scene([ContactView(screen)], -1, name="Edit Contact")
-            ]
+    worker_details = WorkerDetails(screen, manager)
+    scenes = [
+        Scene([worker_details], -1, name="Main"),
+    ]
 
-            screen.play(scenes, stop_on_resize=True, allow_int=True, unhandled_input=on_input)
-        except KeyboardInterrupt:
-            sys.exit(0)
-        except Exception as e:
-            logger.exception(e)
-            WorkerDetails.error = str(e)
+    screen.play(scenes, stop_on_resize=True, allow_int=True, unhandled_input=on_input)
 
 
 def on_screen_ready(manager: 'LoopManager'):
-    try:
-        Screen.wrapper(demo, arguments=[manager])
-    except KeyboardInterrupt:
-        exit(0)
+    while manager.running:
+        try:
+            Screen.wrapper(demo, catch_interrupt=True, arguments=[manager])
+            sys.exit(0)
+        except ResizeScreenError as e:
+            pass
+        except KeyboardInterrupt:
+            exit(0)
+        except Exception as e:
+            logger.exception(e)
+            WorkerDetails.error = str(e)
