@@ -23,6 +23,7 @@ class AutoSaveExample(Consumer):
         self.increment_stat()
         await asyncio.sleep(random.randint(1, 5))
         self.context.data['numbers'].add(number)
+        self.context.stats['test_stat'] += 1
         self.logger('Processed %s', number)
 
     async def tear_down(self):

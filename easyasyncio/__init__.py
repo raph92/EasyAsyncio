@@ -6,10 +6,10 @@ import logzero
 
 if not os.path.exists('logs/'):
     os.mkdir('logs')
-logzero.logfile(f'./logs/{datetime.datetime.now().strftime("%y-%m-%d-%H:%M:%S")}.log',
-                maxBytes=2e6, backupCount=5)
 logger: logging.Logger = logzero.logger
 logzero.loglevel(logging.INFO)
+logzero.logfile(f'./logs/{datetime.datetime.now().strftime("%y-%m-%d-%H:%M:%S")}.log',
+                maxBytes=2e6, backupCount=5)
 
 from .context import Context
 from .loopmanager import LoopManager

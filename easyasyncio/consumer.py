@@ -33,7 +33,7 @@ class Consumer(AbstractAsyncWorker, ABC):
         await self.fill_queue()
         try:
             while self.context.running:
-                self.status('waiting for queue object')
+                self.status('grabbing data')
                 try:
                     data = await self.queue.get()
                 except (RuntimeError, CancelledError):
@@ -44,7 +44,7 @@ class Consumer(AbstractAsyncWorker, ABC):
                         self.logger('%s finished creating tasks', self.name)
                         self._done = True
                         break
-                    self.status('creating worker for', data)
+                    self.status('creating worker')
                     task = self.loop.create_task(self.worker(data))
                     self.tasks.add(task)
         except Exception as e:
