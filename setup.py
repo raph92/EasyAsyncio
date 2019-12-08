@@ -15,6 +15,6 @@ setup(
         'requests',
         'easyfilemanager'
     ],
-    dependency_links=['https://github.com/RaphaelNanje/easyfilemanager.git#egg=easyfilemanager'],
+    dependency_links=['https://github.com/RaphaelNanje/easyfilemanager.git#egg=easyfilemanager-0.0.1'],
     python_requies='~=3.6'
 )
