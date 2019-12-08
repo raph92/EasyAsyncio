@@ -67,7 +67,7 @@ class LoopManager(Thread):
             self.context.stats._end_time = time.time()
             self.stop()
             if succeeded:
-                self.status = 'Finished'
+                self.status = 'Finished!'
 
             # print('Success! All tasks have completed!')
 

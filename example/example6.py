@@ -1,5 +1,4 @@
 import asyncio
-import datetime
 import os
 import random
 import sys
@@ -28,9 +27,6 @@ class AutoSaveExample(Consumer):
         self.context.data['numbers'].add(number)
         self.context.stats['test_stat'] += 1
         self.logger('Processed %s', number)
-
-    async def tear_down(self):
-        print(self.name, 'done at', datetime.datetime.now())
 
     @property
     def name(self):

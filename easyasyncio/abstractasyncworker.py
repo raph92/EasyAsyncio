@@ -4,6 +4,7 @@ from asyncio import AbstractEventLoop, Semaphore, Future, Queue
 from collections import deque
 from typing import Set, Optional
 
+from . import start_date
 from .context import Context
 
 
@@ -24,7 +25,7 @@ class AbstractAsyncWorker(abc.ABC):
         self._done = False
         self.successor: 'Optional[AbstractAsyncWorker]' = None
         self._status = ''
-        self.logs: deque = deque(maxlen=50)
+        self.logs: deque[str] = deque(maxlen=50)
         self.working = 0
 
     @property
@@ -44,6 +45,8 @@ class AbstractAsyncWorker(abc.ABC):
         self.context.workers.add(self)
         self.sem = Semaphore(self.max_concurrent)
         self.context.queues.new(self.name)
+        self.context.data.register(f'{self.name}_logs', list(), f'logs/{start_date}/{self.name}.logs',
+                                   False, False)
         self.status('initialized')
 
     async def preprocess(self, item):
@@ -108,6 +111,7 @@ class AbstractAsyncWorker(abc.ABC):
             pass
         message = f'[{datetime.now().strftime("%H:%M:%S")}] {string}'
         self.logs.append(message)
+        self.context.data[f'{self.name}_logs'].append(message)
         # logger.info(message)
 
     def time_left(self):

@@ -4,11 +4,13 @@ import os
 
 import logzero
 
-if not os.path.exists('logs/'):
-    os.mkdir('logs')
 logger: logging.Logger = logzero.logger
 logzero.loglevel(logging.INFO)
-logzero.logfile(f'./logs/{datetime.datetime.now().strftime("%y-%m-%d-%H:%M:%S")}.log',
+start_date = datetime.datetime.now().strftime("%y-%m-%d-%H%M%S")
+_path = f'./logs/{start_date}/logs.log'
+if not os.path.exists(os.path.split(_path)[0]):
+    os.makedirs(os.path.split(_path)[0])
+logzero.logfile(_path,
                 maxBytes=2e6, backupCount=5)
 
 from .context import Context
@@ -34,4 +36,5 @@ __all__ = [
     'Stats',
     'AutoSave',
     'logger',
+    'start_date'
 ]
