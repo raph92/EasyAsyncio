@@ -1,5 +1,5 @@
 import sys
-from typing import TYPE_CHECKING, Iterable, Sized
+from typing import TYPE_CHECKING, Iterable, Sized, List, Tuple, Optional
 
 import asciimatics.widgets as widgets
 from asciimatics.event import KeyboardEvent
@@ -7,14 +7,14 @@ from asciimatics.exceptions import ResizeScreenError
 from asciimatics.scene import Scene
 from asciimatics.screen import Screen, _CursesScreen
 
-from . import logger
+from . import logger, AbstractAsyncWorker
 
 if TYPE_CHECKING:
     from .loopmanager import LoopManager
 
 
 class Text(widgets.TextBox):
-    def __init__(self, text):
+    def __init__(self, text: str) -> None:
         super().__init__(1, as_string=True)
         self.value = text
 
@@ -24,7 +24,7 @@ class WorkerDetails(widgets.Frame):
     error = ''
     status = ''
 
-    def __init__(self, screen, manager: 'LoopManager'):
+    def __init__(self, screen: Screen, manager: 'LoopManager') -> None:
         super(WorkerDetails, self).__init__(screen,
                                             screen.height - 5,
                                             screen.width - 10,
@@ -36,11 +36,11 @@ class WorkerDetails(widgets.Frame):
         # Create the form for displaying the list of contacts.
         self.manager = manager
         self.workers = list(self.manager.context.workers)
-        self.worker = self.workers[0]
+        self.worker: Optional[AbstractAsyncWorker] = self.workers[0]
         self.set_theme('tlj256')
 
         # header
-        self._initiate_header(manager)
+        self._initiate_header()
 
         # main layout
         self.main_layout = widgets.Layout([2, 1, 2, 1, 4], fill_frame=True)
@@ -52,7 +52,8 @@ class WorkerDetails(widgets.Frame):
         names.append(('Totals', len(names)))
 
         self.selected = widgets.ListBox(widgets.Widget.FILL_FRAME, names,
-                                        on_change=self._on_change, on_select=self._on_change)
+                                        on_change=self._on_change,
+                                        on_select=self._on_change)
         self.main_layout.add_widget(self.selected, 0)
 
         # ml-1
@@ -60,24 +61,33 @@ class WorkerDetails(widgets.Frame):
         # ml-2
         stat_list = []
         for stat in self.worker.stats:
-            stat_list.append((f'{stat} count: {self.manager.context.stats[stat]}', stat))
+            value = self.manager.context.stats[stat]
+            stat_list.append((
+                    f'{stat} count: {value}',
+                    stat))
+            elapsed_time = self.manager.context.stats.elapsed_time
             stat_list.append((f'{stat}\'s count per second: '
-                              f'{self.manager.context.stats[stat] / self.manager.context.stats.elapsed_time}', stat))
-        self.worker_stat_list = widgets.ListBox(widgets.Widget.FILL_COLUMN, stat_list)
+                              f'{value / elapsed_time}',
+                              stat))
+        self.worker_stat_list = widgets.ListBox(widgets.Widget.FILL_COLUMN,
+                                                stat_list)
         self.main_layout.add_widget(self.worker_stat_list, 2)
         # ml-4
         self.log_list = widgets.ListBox(widgets.Widget.FILL_COLUMN,
-                                        [(msg, index) for index, msg in enumerate(self.worker.logs)])
+                                        [(msg, index) for index, msg in
+                                         enumerate(self.worker.logs)])
         self.main_layout.add_widget(self.log_list, 4)
 
         # footer
         self._initiate_footer()
         self.fix()
 
-    def refresh(self):
-        self.text.value = f'Press Q to stop (twice to quit) | Press S to manually save        {WorkerDetails.error}'
+    def refresh(self) -> None:
+        string = 'Press Q to stop (twice to quit) | Press S to manually save'
+        self.text.value = f'{string}{" " * 8}{WorkerDetails.error}'
         if self.worker:
-            logs_ = [(msg, index) for index, msg in enumerate(self.worker.logs)]
+            logs_ = [(msg, index) for index, msg in
+                     enumerate(self.worker.logs)]
             logs_.reverse()
             self.log_list._options = logs_[:50]
             # stats
@@ -86,14 +96,21 @@ class WorkerDetails(widgets.Frame):
             self._update_totals()
 
         # header
-        header_string = f"{' ' * 24}Status: {self.manager.status}{' ' * 24}Last save: {int(self.manager.context.save_thread.last_saved)} " \
-                        f"seconds ago"
-        self.header.value = (f"Running: {self.manager.running}"
-                             f"             Workers: {len(self.manager.context.workers)}" + header_string)
+        self._refresh_header()
 
-    def _update_totals(self):
-        stat_list = []
-        stat_list.append((f'elapsed time: {self.manager.context.stats.elapsed_time: .2f}', len(stat_list)))
+    def _refresh_header(self) -> None:
+        last_saved = self.manager.context.save_thread.last_saved
+        self.running_label._text = f'Running: {self.manager.running}'
+        self.workers_label._text = (f'Workers: '
+                                    f'{len(self.manager.context.workers)}')
+        self.status_label._text = f'Status: {self.manager.status}'
+        self.last_save_label._text = f'Last save: {int(last_saved)} secs'
+
+    def _update_totals(self) -> None:
+        stat_list: List[Tuple[str, int]] = []
+        elapsed_time = self.manager.context.stats.elapsed_time
+        stat_list.append((
+                f'elapsed time: {elapsed_time : .2f}', len(stat_list)))
         stat_list.append(('-' * 10, len(stat_list)))
         stat_list.append(('', len(stat_list)))
         for name, stat in self.manager.context.data.items():
@@ -103,69 +120,85 @@ class WorkerDetails(widgets.Frame):
                 stat = len(stat)
             stat_list.append((f'{name}: {stat}', len(stat_list)))
         stat_list.append(('-' * 10, len(stat_list)))
-        stat_in_workers = [stat for worker in self.manager.context.workers for stat in worker.stats]
+        stat_in_workers = [stat for worker in self.manager.context.workers for
+                           stat in worker.stats]
         for stat, count in self.manager.context.stats.items():
             if stat in stat_in_workers:
                 continue
             stat_list.append((f'{stat}: {count}', len(stat_list)))
         self.worker_stat_list._options = stat_list
 
-    def _update_stats(self):
-        stat_list = []
+    def _update_stats(self) -> None:
+        stat_list: List[Tuple[str, int]] = []
 
-        stat_list.append((f'elapsed time: {self.manager.context.stats.elapsed_time: .2f}', len(stat_list)))
+        elapsed_time = self.manager.context.stats.elapsed_time
+        stat_list.append((
+                f'elapsed time: {elapsed_time : .2f}',
+                len(stat_list)))
         stat_list.append(('', len(stat_list)))
         for stat in self.worker.stats:
             stat_list.append((stat.center(24, '-'), len(stat_list)))
 
-            stat_list.append((f'count: {self.manager.context.stats[stat]}', len(stat_list)))
-            stat_list.append((f'per second: '
-                              f'{self.manager.context.stats[stat] / self.manager.context.stats.elapsed_time: .2f}',
+            stat_list.append((f'count: {self.manager.context.stats[stat]}',
                               len(stat_list)))
-            # if stat == self.worker.name:
-            #     stat_list.append((f'time left: '
-            #                       f'{self.worker.time_left()} secs', len(stat_list)))
+            per_second = self.manager.context.stats[stat] / elapsed_time
+            stat_list.append((f'per second: '
+                              f'{per_second : .2f}',
+                              len(stat_list)))
             stat_list.append(('-' * 24, len(stat_list)))
             stat_list.append(('', len(stat_list)))
 
-        queue_string = f'queue size: {(self.worker.working + self.worker.queue.qsize()) if not self.manager.finished else 0}'
+        worker_queue_qsize = self.worker.working + self.worker.queue.qsize()
+        finished_else_ = worker_queue_qsize if not self.manager.finished else 0
+        queue_string = f'queue size: {finished_else_}'
         stat_list.append((
-            queue_string,
-            len(stat_list)))
-        stat_list.append((f'workers: {self.worker.max_concurrent}', len(stat_list)))
-        stat_list.append((f'status: {self.worker._status}', len(stat_list)))
+                queue_string,
+                len(stat_list)))
+        stat_list.append(
+                (f'workers: {self.worker.max_concurrent}', len(stat_list)))
+        stat_list.append(
+                (f'status: {self.worker._status}', len(stat_list)))
         self.worker_stat_list._options = stat_list
 
-    def _initiate_header(self, manager):
-        self.header_layout = widgets.Layout([1])
+    def _initiate_header(self) -> None:
+        self.header_layout = widgets.Layout([1, 1, 1, 1])
         self.add_layout(self.header_layout)
-        self.header = widgets.TextBox(1, as_string=True)
-        self.header.disabled = True
-        self.header.value = f"Running: {manager.running}         Workers: {len(manager.context.workers)}"
-        self.header_layout.add_widget(self.header)
-        self.header_layout.add_widget(widgets.Divider())
 
-    def _initiate_footer(self):
+        self.running_label = widgets.Label(f'', align='^')
+        self.workers_label = widgets.Label(f'', align='^')
+        self.status_label = widgets.Label(f'', align='^')
+        self.last_save_label = widgets.Label(f'', align='^')
+
+        self.header_layout.add_widget(self.running_label, 0)
+        self.header_layout.add_widget(self.workers_label, 1)
+        self.header_layout.add_widget(self.status_label, 2)
+        self.header_layout.add_widget(self.last_save_label, 3)
+
+        self.header_layout.add_widget(widgets.Divider(), 0)
+        self.header_layout.add_widget(widgets.Divider(), 1)
+        self.header_layout.add_widget(widgets.Divider(), 2)
+        self.header_layout.add_widget(widgets.Divider(), 3)
+
+    def _initiate_footer(self) -> None:
         footer_layout = widgets.Layout([1])
         self.add_layout(footer_layout)
         footer_layout.add_widget(widgets.Divider())
-        self.text = Text(f'Press Q to stop (twice to quit) | Press S to manually save        {self.error}')
+        q_to_stop_string = 'Press Q to stop (twice to quit)'
+        s_to_save_string = 'Press S to manually save'
+        self.text = Text(
+                f'{q_to_stop_string} | {s_to_save_string}        {self.error}')
         self.text.disabled = True
         footer_layout.add_widget(self.text)
 
-    def _update(self, frame_no):
+    def _update(self, frame_no: int) -> None:
         super()._update(frame_no)
         self.refresh()
 
     @property
-    def frame_update_count(self):
-        # if self.final_update:
-        #     return super().frame_update_count
-        # if self.manager.finished:
-        #     self.final_update = True
+    def frame_update_count(self) -> int:
         return 1
 
-    def _on_change(self, *args):
+    def _on_change(self) -> None:
         if self.selected.value < len(self.workers):
             self.worker = self.workers[self.selected.value]
             self.selected_total = False
@@ -176,8 +209,8 @@ class WorkerDetails(widgets.Frame):
             self.selected_total = True
 
 
-def demo(screen, manager: 'LoopManager'):
-    def on_input(event: KeyboardEvent):
+def demo(screen: Screen, manager: 'LoopManager') -> None:
+    def on_input(event: KeyboardEvent) -> None:
         try:
             if event.key_code == 113:
                 if WorkerDetails.status == 'Stopping...':
@@ -194,18 +227,19 @@ def demo(screen, manager: 'LoopManager'):
 
     worker_details = WorkerDetails(screen, manager)
     scenes = [
-        Scene([worker_details], -1, name="Main"),
+            Scene([worker_details], -1, name="Main"),
     ]
 
-    screen.play(scenes, stop_on_resize=True, allow_int=True, unhandled_input=on_input)
+    screen.play(scenes, stop_on_resize=True, allow_int=True,
+                unhandled_input=on_input)
 
 
-def on_screen_ready(manager: 'LoopManager'):
+def on_screen_ready(manager: 'LoopManager') -> None:
     while manager.running:
         try:
             Screen.wrapper(demo, catch_interrupt=True, arguments=[manager])
             sys.exit(0)
-        except ResizeScreenError as e:
+        except ResizeScreenError:
             pass
         except KeyboardInterrupt:
             exit(0)
