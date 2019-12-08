@@ -26,10 +26,11 @@ class LoopManager(Thread):
     session: ClientSession
     loop: AbstractEventLoop = None
     status = 'Starting...'
+    finished = False
+    showing_graphics = False
 
     def __init__(self, auto_save=True, use_session=False):
         super().__init__()
-        self.finished = False
         self.auto_save = auto_save
         # self.loop.set_debug(True)
         self.loop = asyncio.get_event_loop()
@@ -40,6 +41,7 @@ class LoopManager(Thread):
 
     def start_graphics(self):
         try:
+            self.showing_graphics = True
             on_screen_ready(self)
         except:
             pass
@@ -59,17 +61,18 @@ class LoopManager(Thread):
             succeeded = True
             self.finished = True
         except asyncio.CancelledError:
-            pass
-            # logger.info('All tasks have been canceled')
+            if not self.showing_graphics:
+                logger.info('All tasks have been canceled')
         except Exception as e:
-            logger.exception(e)
+            if not self.showing_graphics:
+                logger.exception(e)
         finally:
             self.context.stats._end_time = time.time()
             self.stop()
             if succeeded:
                 self.status = 'Finished!'
-
-            # print('Success! All tasks have completed!')
+                if not self.showing_graphics:
+                    print('Success! All tasks have completed!')
 
     async def use_with_session(self):
         async with ClientSession(loop=self.loop) as session:
@@ -86,7 +89,8 @@ class LoopManager(Thread):
     def stop(self):
         if self.shutting_down:
             return
-        # logger.info('Ending program...')
+        if not self.showing_graphics:
+            logger.info('Ending program...')
         if self.status != 'Finished':
             self.status = 'Stopping...'
         self.shutting_down = True
@@ -99,8 +103,9 @@ class LoopManager(Thread):
         finally:
             self.post_shutdown()
             for worker in self.context.workers:
-                worker.logger('finished' if self.finished else 'manually stopped')
-                worker.status('finished' if self.finished else 'manually stopped')
+                stopped = 'finished' if self.finished else 'manually stopped'
+                worker.logger(stopped)
+                worker.status(stopped)
 
     def cancel_all_tasks(self, _, _2):
         if self.cancelling_all_tasks:
@@ -123,20 +128,23 @@ class LoopManager(Thread):
                 task.cancel()
 
     def post_shutdown(self):
+        if not self.showing_graphics:
+            logger.debug('post_shutdown saving started')
         try:
             if self.post_saving:
                 return
             self.post_saving = True
             if self.context.save_thread:
                 t = self.loop.create_task(self.context.save_thread.save_func())
-                # logger.debug('post_shutdown saving started')
+
                 self.loop.run_until_complete(t)
         except:
             pass
         finally:
             if self.status == 'Stopping...':
                 self.status = 'Shutdown'
-            # logger.debug('post_shutdown saving finished')
+            if not self.showing_graphics:
+                logger.debug('post_shutdown saving finished')
 
     def save(self):
         self.loop.create_task(self.context.save_thread.save_func())

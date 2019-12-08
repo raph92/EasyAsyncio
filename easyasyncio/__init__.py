@@ -5,7 +5,7 @@ import os
 import logzero
 
 logger: logging.Logger = logzero.logger
-logzero.loglevel(logging.INFO)
+logzero.loglevel(logging.DEBUG)
 start_date = datetime.datetime.now().strftime("%y-%m-%d-%H%M%S")
 _path = f'./logs/{start_date}/logs.log'
 if not os.path.exists(os.path.split(_path)[0]):

@@ -82,9 +82,11 @@ class StatsDisplay:
         self.context.stats_thread = self
 
     async def run(self) -> None:
-        logger.debug('%s starting...', self.name)
+        if not self.context.loop_manager.showing_graphics:
+            logger.debug('%s starting...', self.name)
         while self.context.running:
-            logger.debug('%s\n', self.context.stats.get_stats_string() + self.context.data.get_data_string())
             await asyncio.sleep(self.interval, loop=self.context.loop)
+            if not self.context.loop_manager.showing_graphics:
+                logger.debug('%s\n', self.context.stats.get_stats_string() + self.context.data.get_data_string())
             if not self.context.running:
                 break

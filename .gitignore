@@ -129,3 +129,5 @@ dmypy.json
 /.idea/
 /venv36/
 /example/numbers/
+/numbers/
+/example/logs/

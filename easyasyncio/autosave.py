@@ -22,7 +22,8 @@ class AutoSave:
         self.context.save_thread = self
 
     async def run(self) -> None:
-        logger.debug('%s starting...', self.name)
+        if not self.context.loop_manager.showing_graphics:
+            logger.debug('%s starting...', self.name)
         while self.context.running:
             try:
                 await asyncio.sleep(self.interval, loop=self.context.loop)
@@ -35,7 +36,8 @@ class AutoSave:
                 logger.exception(e)
 
     async def save_func(self):
-        # logger.info('autosaving...')
+        if not self.context.loop_manager.showing_graphics:
+            logger.debug('autosaving...')
         await self.context.data.save()
         self._last_saved = time()
 

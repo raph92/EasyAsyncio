@@ -4,7 +4,7 @@ from asyncio import AbstractEventLoop, Semaphore, Future, Queue
 from collections import deque
 from typing import Set, Optional
 
-from . import start_date
+from . import start_date, logger
 from .context import Context
 
 
@@ -112,7 +112,8 @@ class AbstractAsyncWorker(abc.ABC):
         message = f'[{datetime.now().strftime("%H:%M:%S")}] {string}'
         self.logs.append(message)
         self.context.data[f'{self.name}_logs'].append(message)
-        # logger.info(message)
+        if not self.context.loop_manager.showing_graphics:
+            logger.info('[%s]%s', self.name, message)
 
     def time_left(self):
         elapsed_time = self.context.stats.elapsed_time
