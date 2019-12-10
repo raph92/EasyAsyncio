@@ -131,3 +131,6 @@ dmypy.json
 /example/numbers/
 /numbers/
 /example/logs/
+testfiles/
+/venv-dev/
+/mypyerrors
