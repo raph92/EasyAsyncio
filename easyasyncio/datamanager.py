@@ -1,6 +1,6 @@
 import os
 from collections import UserDict
-from typing import Sized, Iterable
+from typing import Sized, Iterable, Dict
 
 from easyfilemanager import FileManager
 
@@ -28,17 +28,27 @@ class DataManager(UserDict):
     filemanager = FileManager()
     directory = '.'
     do_not_display_list = []  # data items not to show
+    save_kwargs: 'Dict[str, Dict]' = dict()
+    load_kwargs: 'Dict[str, Dict]' = dict()
 
     def __init__(self, *args, **kwargs: dict) -> None:
         super().__init__(*args, **kwargs)
 
-    def register(self, name, initial_data, path_to_file=directory, display=True, load=True):
+    def register(self, name, initial_data, path_to_file=directory,
+                 display=True, load=True, save_kwargs: dict = None,
+                 load_kwargs: dict = None):
         """
         Register and load a data file. This file will be accessible to every AsyncWorker through context.data[name]
         """
         # whether to display this key's value in get_data_string()
         if not display:
             self.do_not_display_list.append(name)
+        if save_kwargs:
+            self.save_kwargs[name] = save_kwargs
+        if load_kwargs:
+            self.load_kwargs[name] = load_kwargs
+        else:
+            load_kwargs = {}
         loaded_data = None
         file_path, file_name = os.path.split(path_to_file)
         if not file_path:
@@ -46,28 +56,31 @@ class DataManager(UserDict):
         _, file_type = os.path.splitext(file_name)
         self.filemanager.register_file(file_name, file_path, short_name=name)
         if load and self.filemanager.exists(name):
-            loaded_data = self.filemanager.smart_load(name)
+            loaded_data = self.filemanager.smart_load(name, **load_kwargs)
 
         self[name] = initial_data
         if loaded_data:
-            data = self[name]
-            if isinstance(loaded_data, Iterable) and not isinstance(loaded_data, dict):
-                new_iterable = _numericize(loaded_data)
-                loaded_data = new_iterable
-            if isinstance(data, set):
-                self[name].update(loaded_data)
-            elif isinstance(data, list):
-                for d in loaded_data:
-                    self[name].append(d)
-            elif isinstance(data, dict):
-                self[name].update(loaded_data)
+            self.load(initial_data, loaded_data, name)
+
+    def load(self, data, loaded_data, name):
+        if isinstance(loaded_data, Iterable) and not isinstance(
+                loaded_data, dict):
+            new_iterable = _numericize(loaded_data)
+            loaded_data = new_iterable
+        if isinstance(data, set):
+            self[name].update(loaded_data)
+        elif isinstance(data, list):
+            for d in loaded_data:
+                self[name].append(d)
+        elif isinstance(data, dict):
+            self[name].update(loaded_data)
 
     def file_update(self, name, data):
         self[name] = data
 
     def get_data_string(self) -> str:
         string = ''
-        string += '\n\t\t    <----------------------TOTALS---------------------------->\n'
+        string += f'\n\t\t    <{"TOTALS".center(50, "-")}>\n'
         for k, v in self.items():
             if k in self.do_not_display_list:
                 continue
@@ -80,9 +93,14 @@ class DataManager(UserDict):
     async def save(self):
         try:
             for i in self:
-                if i in self.filemanager:
-                    get = self.get(i)
-                    if get:
-                        self.filemanager.smart_save(i, get)
+                self.filemanager.get(i)
+                if not i:
+                    continue
+                get = self.get(i)
+                if not get:
+                    continue
+                save_kwargs = self.save_kwargs.get(i, {})
+                self.filemanager.smart_save(i, get,
+                                            **save_kwargs)
         except Exception as e:
             logger.exception(e)
