@@ -1,6 +1,6 @@
 import asyncio
 import time
-from collections import Counter
+import typing
 from typing import TYPE_CHECKING
 
 from . import logger
@@ -9,26 +9,27 @@ if TYPE_CHECKING:
     from .context import Context
 
 
-class Stats(Counter):
+class Stats(typing.Counter[int]):
     """keep track of various stats"""
     start_time = time.time()
     _end_time = None
     data_found = 0
     initial_data_count = 0
 
-    def __init__(self, context) -> None:
+    def __init__(self, context: 'Context') -> None:
         from .context import Context
         self.context: Context = context
         super().__init__()
 
     @property
-    def end_time(self):
+    def end_time(self) -> float:
         return self._end_time or time.time()
 
-    def get_count_strings(self):
+    def get_count_strings(self) -> str:
         string = '\n'
         string += '\t\t\t    <-----STATS----->'
-        string += '\n\t\t\t\t    elapsed time: {time:.6f} secs\n'.format(time=self.elapsed_time)
+        string += '\n\t\t\t\t    elapsed time: {time:.6f} secs\n'.format(
+                time=self.elapsed_time)
         if self.items():
             for k, v in self.items():
                 if k in [s for p in self.context.workers for s in p.stats]:
@@ -57,16 +58,15 @@ class Stats(Counter):
                        f'{"-" * int((len(top_worker_section_string) / 3))}----->\n\n')
         return string.rstrip()
 
-    def get_stats_string(self):
+    def get_stats_string(self) -> str:
         string = '\n\t\t    <---------------------SESSION STATS--------------------->'
         string += self.get_count_strings()
         string += '\n\t\t    </---------------------SESSION STATS--------------------->\n'
 
         return string
 
-
     @property
-    def elapsed_time(self):
+    def elapsed_time(self) -> float:
         return self.end_time - self.start_time
 
 
@@ -87,6 +87,7 @@ class StatsDisplay:
         while self.context.running:
             await asyncio.sleep(self.interval, loop=self.context.loop)
             if not self.context.loop_manager.showing_graphics:
-                logger.debug('%s\n', self.context.stats.get_stats_string() + self.context.data.get_data_string())
+                logger.debug('%s\n',
+                             self.context.stats.get_stats_string() + self.context.data.get_data_string())
             if not self.context.running:
                 break

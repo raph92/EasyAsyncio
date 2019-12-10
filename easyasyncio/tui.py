@@ -7,10 +7,11 @@ from asciimatics.exceptions import ResizeScreenError
 from asciimatics.scene import Scene
 from asciimatics.screen import Screen, _CursesScreen
 
-from . import logger, AbstractAsyncWorker
+from . import logger
 
 if TYPE_CHECKING:
     from .loopmanager import LoopManager
+    from .abstractasyncworker import AbstractAsyncWorker
 
 
 class Text(widgets.TextBox):
@@ -36,7 +37,7 @@ class WorkerDetails(widgets.Frame):
         # Create the form for displaying the list of contacts.
         self.manager = manager
         self.workers = list(self.manager.context.workers)
-        self.worker: Optional[AbstractAsyncWorker] = self.workers[0]
+        self.worker: 'Optional[AbstractAsyncWorker]' = self.workers[0]
         self.set_theme('tlj256')
 
         # header

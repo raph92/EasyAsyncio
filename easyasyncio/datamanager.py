@@ -65,7 +65,7 @@ class DataManager(UserDict):
     def file_update(self, name, data):
         self[name] = data
 
-    def get_data_string(self):
+    def get_data_string(self) -> str:
         string = ''
         string += '\n\t\t    <----------------------TOTALS---------------------------->\n'
         for k, v in self.items():

@@ -3,6 +3,7 @@ import asyncio
 from abc import abstractmethod
 from asyncio import CancelledError
 from time import time
+from typing import Iterable, Mapping, Any, Coroutine
 
 from .abstractasyncworker import AbstractAsyncWorker
 
@@ -10,23 +11,24 @@ from .abstractasyncworker import AbstractAsyncWorker
 class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
     start = False  # whether this Producer will start instantly or not
 
-    def __init__(self, data, **kwargs):
+    def __init__(self, data: Iterable[Any],
+                 **kwargs: Mapping[str, Any]) -> None:
         super().__init__(**kwargs)
         self.data = data
 
     @abstractmethod
-    async def fill_queue(self):
+    async def fill_queue(self) -> None:
         """implement the queue filling logic here"""
         pass
 
-    async def worker(self, num):
+    async def worker(self, num: int) -> Coroutine:
         """get each item from the queue and pass it to self.work"""
         self.logger('%s worker %s started', self.name, num)
         while self.context.running:
             try:
                 data = await self.queue.get()
             except (RuntimeError, CancelledError):
-                return
+                return None
             if data is False:
                 self.logger('%s worker %s terminating', self.name, num)
                 break
