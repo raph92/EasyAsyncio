@@ -117,7 +117,7 @@ class LoopManager(Thread):
             worker.queue.put_nowait(False)
             for task in worker.tasks:
                 task.cancel()
-                worker.queue.put(False)
+                worker.queue.put_nowait(False)
         try:
             for task in asyncio.all_tasks(loop=self.loop):
                 task.cancel()

@@ -3,7 +3,7 @@ import asyncio
 from abc import abstractmethod
 from asyncio import CancelledError
 from time import time
-from typing import Iterable, Mapping, Any, Coroutine
+from typing import Iterable, Any, Coroutine
 
 from .abstractasyncworker import AbstractAsyncWorker
 
@@ -12,7 +12,7 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
     start = False  # whether this Producer will start instantly or not
 
     def __init__(self, data: Iterable[Any],
-                 **kwargs: Mapping[str, Any]) -> None:
+                 **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.data = data
 
