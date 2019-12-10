@@ -17,17 +17,17 @@ class LoopManager(Thread):
     """
     The vision is that this class will handle the top level task gathering, run_until_complete, etc
     """
+    session: ClientSession
     running = True
     shutting_down = False
     cancelling_all_tasks = False
     post_saving = False
-    worker_tasks: Set[Future] = set()
-    scheduled_tasks: Set[Future] = set()
-    session: ClientSession
-    loop: AbstractEventLoop = None
-    status = 'Starting...'
     finished = False
     showing_graphics = False
+    worker_tasks: Set[Future] = set()
+    scheduled_tasks: Set[Future] = set()
+    loop: AbstractEventLoop = None
+    status = 'Starting...'
 
     def __init__(self, auto_save=True, use_session=False):
         super().__init__()
@@ -81,12 +81,14 @@ class LoopManager(Thread):
 
     def add_tasks(self, *asyncio_objects: 'AbstractAsyncWorker'):
         for obj in asyncio_objects:
+            if not obj:
+                continue
             assert isinstance(obj, AbstractAsyncWorker)
             obj.initialize(self.context)
             t = self.loop.create_task(obj.run())
             self.worker_tasks.add(t)
 
-    def stop(self):
+    def stop(self) -> None:
         if self.shutting_down:
             return
         if not self.showing_graphics:
@@ -107,7 +109,7 @@ class LoopManager(Thread):
                 worker.logger(stopped)
                 worker.status(stopped)
 
-    def cancel_all_tasks(self, _, _2):
+    def cancel_all_tasks(self, _, _2) -> None:
         if self.cancelling_all_tasks:
             return
         self.cancelling_all_tasks = True
@@ -127,7 +129,7 @@ class LoopManager(Thread):
             for task in self.worker_tasks:
                 task.cancel()
 
-    def post_shutdown(self):
+    def post_shutdown(self) -> None:
         if not self.showing_graphics:
             logger.debug('post_shutdown saving started')
         try:
@@ -136,7 +138,6 @@ class LoopManager(Thread):
             self.post_saving = True
             if self.context.save_thread:
                 t = self.loop.create_task(self.context.save_thread.save_func())
-
                 self.loop.run_until_complete(t)
         except:
             pass
@@ -146,5 +147,5 @@ class LoopManager(Thread):
             if not self.showing_graphics:
                 logger.debug('post_shutdown saving finished')
 
-    def save(self):
+    def save(self) -> None:
         self.loop.create_task(self.context.save_thread.save_func())

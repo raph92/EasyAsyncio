@@ -1,18 +1,18 @@
 from setuptools import setup
 
 setup(
-    name='easyasyncio',
-    version='6.5.0-alpha',
-    packages=['easyasyncio'],
-    url='https://github.com/RaphaelNanje/easyasyncio.git',
-    license='MIT',
-    author='Raphael Nanje',
-    author_email='rtnanje@gmail.com',
-    description='A library that makes asyncio simple',
-    install_requires=[
-        'logzero',
-        'aiohttp',
-        'requests',
+        name='easyasyncio',
+        version='6.6.1-beta',
+        packages=['easyasyncio'],
+        url='https://github.com/RaphaelNanje/easyasyncio.git',
+        license='MIT',
+        author='Raphael Nanje',
+        author_email='rtnanje@gmail.com',
+        description='A library that makes asyncio simple',
+        install_requires=[
+                'logzero',
+                'aiohttp',
+                'requests',
         'easyfilemanager @ https://github.com/RaphaelNanje/easyfilemanager/archive/master.zip',
         'asciimatics'
     ],
