@@ -107,12 +107,6 @@ class AbstractAsyncWorker(abc.ABC):
         return self.name
 
     def logger(self, string: str, *args):
-        from datetime import datetime
-        try:
-            string = string.replace('%s', '{}').format(*args)
-        except:
-            pass
-        message = f'[{datetime.now().strftime("%H:%M:%S")}] {string}'
         self.log.info(string)
 
     def time_left(self):
