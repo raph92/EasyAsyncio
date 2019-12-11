@@ -37,27 +37,31 @@ class Stats(typing.Counter[int]):
                     continue
                 string += f'\t\t\t\t    {k} count: {v}\n'
                 string += (f'\t\t\t\t    {k}\'s count per second: '
-                           f'{v / self.elapsed_time}\n')
+                           f'{v / self.elapsed_time: .2f}\n')
         string += '\t\t\t    </-----STATS----->\n\n'
         for p in self.context.workers:
             from .consumer import Consumer
             top_worker_section_string = f'<-----WORKER {p.name}----->\n'
             string += '\t\t\t    ' + top_worker_section_string
             if isinstance(p, Consumer):
-                string += f'\t\t\t\t    {p.name} queue: {p.working + p.queue.qsize()} items left\n'
+                string += (f'\t\t\t\t    {p.name} queue: '
+                           f'{p.working + p.queue.qsize()} items left\n')
             else:
-                string += f'\t\t\t\t    {p.name} queue: {p.queue.qsize()} items left\n'
+                string += (f'\t\t\t\t    {p.name} queue: '
+                           f'{p.queue.qsize()} items left\n')
             string += f'\t\t\t\t    {p.name} workers: {p.max_concurrent}\n'
             string += f'\t\t\t\t    {p.name} status: {p._status}\n'
             for s in p.stats:
                 string += f'\t\t\t\t    {s} count: {self[s]}\n'
-                string += f'\t\t\t\t    {s}\'s count per second: {self[s] / self.elapsed_time}\n'
+                string += (f'\t\t\t\t    {s}\'s count per second: '
+                           f'{self[s] / self.elapsed_time: .2f}\n')
 
             i = 1 if len(top_worker_section_string) % 2 != 0 else 4
             string += (f'\t\t\t    </'
                        f'{"-" * int((len(top_worker_section_string) / 3 - i))}'
                        f'WORKER'
-                       f'{"-" * int((len(top_worker_section_string) / 3))}----->\n\n')
+                       f'{"-" * int((len(top_worker_section_string) / 3))}'
+                       f'----->\n\n')
         return string.rstrip()
 
     def get_stats_string(self) -> str:
