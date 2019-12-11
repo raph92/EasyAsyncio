@@ -1,3 +1,4 @@
+import _curses
 import sys
 from typing import TYPE_CHECKING, Iterable, Sized, List, Tuple, Optional
 
@@ -12,6 +13,8 @@ from . import logger
 if TYPE_CHECKING:
     from .loopmanager import LoopManager
     from .abstractasyncworker import AbstractAsyncWorker
+
+logger = logger.getChild('tui')
 
 
 class Text(widgets.TextBox):
@@ -90,14 +93,17 @@ class WorkerDetails(widgets.Frame):
             # prevent mutation during iteration
             worker_logs = self.worker.logs.copy()
             logs_ = [(msg, index) for index, msg in
-                     enumerate(self.worker.logs)]
+                     enumerate(worker_logs)]
             logs_.reverse()
             self.log_list._options = logs_[:50]
             # stats
             self._update_stats()
         elif self.selected_total:
             self._update_totals()
-
+            logs_ = [(msg, index) for index, msg in
+                     enumerate(self.manager.logs)]
+            logs_.reverse()
+            self.log_list._options = logs_[:50]
         # header
         self._refresh_header()
 
@@ -242,10 +248,14 @@ def on_screen_ready(manager: 'LoopManager') -> None:
         try:
             Screen.wrapper(demo, catch_interrupt=True, arguments=[manager])
             sys.exit(0)
+        except _curses.error:
+            logger.error('Please run this in a terminal or '
+                         'do not call LoopManager.start_graphics()')
+            sys.exit(2)
         except ResizeScreenError:
             pass
         except KeyboardInterrupt:
-            exit(0)
+            sys.exit(3)
         except Exception as e:
             logger.exception(e)
             WorkerDetails.error = str(e)

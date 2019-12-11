@@ -20,10 +20,10 @@ class AutoSave:
         if self.context.save_thread:
             del self.context.save_thread
         self.context.save_thread = self
+        self.logger = logger.getChild(type(self).__name__)
 
     async def run(self) -> None:
-        if not self.context.loop_manager.showing_graphics:
-            logger.debug('%s starting...', self.name)
+        self.logger.debug('%s starting...', self.name)
         while self.context.running:
             try:
                 await asyncio.sleep(self.interval, loop=self.context.loop)
@@ -33,11 +33,10 @@ class AutoSave:
             except (RuntimeError, CancelledError):
                 pass
             except Exception as e:
-                logger.exception(e)
+                self.logger.exception(e)
 
     async def save_func(self):
-        if not self.context.loop_manager.showing_graphics:
-            logger.debug('autosaving...')
+        self.logger.debug('autosaving...')
         await self.context.data.save()
         self._last_saved = time()
 

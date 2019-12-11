@@ -17,9 +17,10 @@ class Stats(typing.Counter[int]):
     initial_data_count = 0
 
     def __init__(self, context: 'Context') -> None:
+        super().__init__()
         from .context import Context
         self.context: Context = context
-        super().__init__()
+        self.logger = logger.getChild(type(self).__name__)
 
     @property
     def end_time(self) -> float:
@@ -35,7 +36,8 @@ class Stats(typing.Counter[int]):
                 if k in [s for p in self.context.workers for s in p.stats]:
                     continue
                 string += f'\t\t\t\t    {k} count: {v}\n'
-                string += f'\t\t\t\t    {k}\'s count per second: {v / self.elapsed_time}\n'
+                string += (f'\t\t\t\t    {k}\'s count per second: '
+                           f'{v / self.elapsed_time}\n')
         string += '\t\t\t    </-----STATS----->\n\n'
         for p in self.context.workers:
             from .consumer import Consumer
@@ -59,9 +61,11 @@ class Stats(typing.Counter[int]):
         return string.rstrip()
 
     def get_stats_string(self) -> str:
-        string = '\n\t\t    <---------------------SESSION STATS--------------------->'
+        string = ('\n\t\t    <---------------------'
+                  'SESSION STATS--------------------->')
         string += self.get_count_strings()
-        string += '\n\t\t    </---------------------SESSION STATS--------------------->\n'
+        string += ('\n\t\t    </---------------------'
+                   'SESSION STATS--------------------->\n')
 
         return string
 
@@ -80,14 +84,17 @@ class StatsDisplay:
         if self.context.stats_thread:
             del self.context.stats_thread
         self.context.stats_thread = self
+        self.logger = logger.getChild(type(self).__name__)
 
     async def run(self) -> None:
-        if not self.context.loop_manager.showing_graphics:
-            logger.debug('%s starting...', self.name)
+        self.logger.debug('%s starting...', self.name)
         while self.context.running:
             await asyncio.sleep(self.interval, loop=self.context.loop)
-            if not self.context.loop_manager.showing_graphics:
-                logger.debug('%s\n',
-                             self.context.stats.get_stats_string() + self.context.data.get_data_string())
+            await self.display()
             if not self.context.running:
                 break
+
+    async def display(self):
+        self.logger.info('%s\n',
+                         self.context.stats.get_stats_string()
+                         + self.context.data.get_data_string())

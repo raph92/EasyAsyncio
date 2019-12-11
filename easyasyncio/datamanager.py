@@ -1,10 +1,9 @@
+import logging
 import os
 from collections import UserDict
 from typing import Sized, Iterable, Dict
 
 from easyfilemanager import FileManager
-
-from easyasyncio import logger
 
 
 def _numericize(loaded_data):
@@ -33,6 +32,7 @@ class DataManager(UserDict):
 
     def __init__(self, *args, **kwargs: dict) -> None:
         super().__init__(*args, **kwargs)
+        self.logger = logging.getLogger(type(self).__name__)
 
     def register(self, name, initial_data, path_to_file=directory,
                  display=True, load=True, save_kwargs: dict = None,
@@ -41,6 +41,7 @@ class DataManager(UserDict):
         Register and load a data file. This file will be accessible to every AsyncWorker through context.data[name]
         """
         # whether to display this key's value in get_data_string()
+        self.logger.debug('registering "%s" -> "%s"', name, path_to_file)
         if not display:
             self.do_not_display_list.append(name)
         if save_kwargs:
@@ -57,7 +58,10 @@ class DataManager(UserDict):
         self.filemanager.register_file(file_name, file_path, short_name=name)
         if load and self.filemanager.exists(name):
             loaded_data = self.filemanager.smart_load(name, **load_kwargs)
-
+            self.logger.debug('loaded data for "%s" -> %s', name,
+                              (str(loaded_data)[:75] + '...') if len(
+                                      str(loaded_data)) > 75 else str(
+                                  loaded_data))
         self[name] = initial_data
         if loaded_data:
             self.load(initial_data, loaded_data, name)
@@ -92,15 +96,15 @@ class DataManager(UserDict):
 
     async def save(self):
         try:
-            for i in self:
-                self.filemanager.get(i)
-                if not i:
+            for name, value in self.items():
+                # check if this key has a file name
+                if name not in self.filemanager:
                     continue
-                get = self.get(i)
-                if not get:
+                # if value is empty continue
+                if not value:
                     continue
-                save_kwargs = self.save_kwargs.get(i, {})
-                self.filemanager.smart_save(i, get,
+                save_kwargs = self.save_kwargs.get(name, {})
+                self.filemanager.smart_save(name, value,
                                             **save_kwargs)
         except Exception as e:
-            logger.exception(e)
+            self.logger.exception(e)

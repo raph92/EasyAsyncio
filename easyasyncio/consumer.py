@@ -28,7 +28,7 @@ class Consumer(AbstractAsyncWorker, ABC):
 
     async def run(self):
         """fill the queue for the worker then start it"""
-        self.logger('%s starting...', self.name)
+        self.log.debug('%s starting...', self.name)
         self.status('starting')
         await self.fill_queue()
         try:
@@ -41,14 +41,14 @@ class Consumer(AbstractAsyncWorker, ABC):
                     return
                 else:
                     if data is False:
-                        self.logger('%s finished creating tasks', self.name)
+                        self.log.debug('%s finished creating tasks', self.name)
                         self._done = True
                         break
                     self.status('creating worker')
                     task = self.loop.create_task(self.worker(data))
                     self.tasks.add(task)
         except Exception as e:
-            self.logger(str(e))
+            self.log.debug(str(e))
             self.status('Stopped')
 
         self.status('processing')
@@ -56,4 +56,6 @@ class Consumer(AbstractAsyncWorker, ABC):
         await self.tear_down()
         self.end_time = time()
         self.status('finished')
-        self.logger('%s is finished: %s', self.name, self.results)
+        if self.with_errors:
+            self.log.warning('Some errors occurred. See logs')
+        self.log.debug('%s is finished: %s', self.name, self.results)

@@ -1,4 +1,6 @@
 import asyncio
+import collections
+import logging
 import signal
 import time
 from asyncio import Future, AbstractEventLoop
@@ -7,7 +9,6 @@ from typing import Set
 
 from aiohttp import ClientSession
 
-from . import logger
 from .abstractasyncworker import AbstractAsyncWorker
 from .context import Context
 from .tui import on_screen_ready
@@ -28,6 +29,8 @@ class LoopManager(Thread):
     scheduled_tasks: Set[Future] = set()
     loop: AbstractEventLoop = None
     status = 'Starting...'
+    logs = collections.deque(maxlen=50)
+    succeeded = False
 
     def __init__(self, auto_save=True, use_session=False):
         super().__init__()
@@ -38,41 +41,52 @@ class LoopManager(Thread):
         self.use_session = use_session
         signal.signal(signal.SIGINT, self.cancel_all_tasks)
         signal.signal(signal.SIGTERM, self.cancel_all_tasks)
+        self.logger = logging.getLogger(type(self).__name__)
+        self.logger.addHandler(LoopManagerLoggingHandler(self))
 
     def start_graphics(self):
         try:
             self.showing_graphics = True
+
+            file_handler = logging.getLogger('').handlers[0]
+            self.logger.propagate = False
+            self.logger.addHandler(file_handler)
+            self.context.stats_thread.logger.propagate = False
+
+            logging.getLogger('').addHandler(LoopManagerLoggingHandler(self))
+
+            for w in self.context.workers:
+                w.log.propagate = False
+                w.log.addHandler(file_handler)
+
             on_screen_ready(self)
-        except:
-            pass
+        except Exception as e:
+            self.logger.exception(e)
 
     def run(self):
-        succeeded = False
         try:
             if self.auto_save:
-                self.scheduled_tasks.add(self.loop.create_task(self.context.save_thread.run()))
-            self.scheduled_tasks.add(self.loop.create_task(self.context.stats_thread.run()))
+                self.scheduled_tasks.add(
+                        self.loop.create_task(self.context.save_thread.run()))
+            self.scheduled_tasks.add(
+                    self.loop.create_task(self.context.stats_thread.run()))
             self.context.stats.start_time = time.time()
             self.status = 'Running'
+            self.logger.info('Started')
             if self.use_session:
                 self.loop.run_until_complete(self.use_with_session())
             else:
-                self.loop.run_until_complete(asyncio.gather(*self.worker_tasks, loop=self.loop))
-            succeeded = True
+                self.loop.run_until_complete(
+                        asyncio.gather(*self.worker_tasks, loop=self.loop))
+            self.succeeded = True
             self.finished = True
         except asyncio.CancelledError:
-            if not self.showing_graphics:
-                logger.info('All tasks have been canceled')
+            self.logger.debug('All tasks have been canceled')
         except Exception as e:
-            if not self.showing_graphics:
-                logger.exception(e)
+            self.logger.exception(e)
         finally:
             self.context.stats._end_time = time.time()
             self.stop()
-            if succeeded:
-                self.status = 'Finished!'
-                if not self.showing_graphics:
-                    print('Success! All tasks have completed!')
 
     async def use_with_session(self):
         async with ClientSession(loop=self.loop) as session:
@@ -92,7 +106,7 @@ class LoopManager(Thread):
         if self.shutting_down:
             return
         if not self.showing_graphics:
-            logger.info('Ending program...')
+            self.logger.debug('Ending program...')
         if self.status != 'Finished':
             self.status = 'Stopping...'
         self.shutting_down = True
@@ -108,6 +122,10 @@ class LoopManager(Thread):
                 stopped = 'finished' if self.finished else 'manually stopped'
                 worker.logger(stopped)
                 worker.status(stopped)
+            if self.succeeded:
+                self.status = 'Finished!'
+                self.logger.info('Success! All tasks have completed!')
+            self.logger.info('Exiting.')
 
     def cancel_all_tasks(self, _, _2) -> None:
         if self.cancelling_all_tasks:
@@ -130,22 +148,33 @@ class LoopManager(Thread):
                 task.cancel()
 
     def post_shutdown(self) -> None:
-        if not self.showing_graphics:
-            logger.debug('post_shutdown saving started')
+        self.logger.debug('post_shutdown saving started')
         try:
             if self.post_saving:
                 return
             self.post_saving = True
             if self.context.save_thread:
-                t = self.loop.create_task(self.context.save_thread.save_func())
-                self.loop.run_until_complete(t)
-        except:
-            pass
+                self.save()
+            t = self.loop.create_task(self.context.stats_thread.display())
+            self.loop.run_until_complete(t)
+        except Exception as e:
+            self.logger.exception(e)
         finally:
             if self.status == 'Stopping...':
                 self.status = 'Shutdown'
-            if not self.showing_graphics:
-                logger.debug('post_shutdown saving finished')
+
+            self.logger.debug('post_shutdown saving finished')
 
     def save(self) -> None:
-        self.loop.create_task(self.context.save_thread.save_func())
+        t = self.loop.create_task(self.context.save_thread.save_func())
+        self.loop.run_until_complete(t)
+
+
+class LoopManagerLoggingHandler(logging.Handler):
+    def __init__(self, manager: LoopManager,
+                 level=logging.INFO) -> None:
+        super().__init__(level)
+        self.manager = manager
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.manager.logs.append(record.getMessage())
