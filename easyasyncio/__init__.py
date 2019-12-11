@@ -1,5 +1,7 @@
 import logging
 
+logger = logging.getLogger('easyasyncio')
+
 from . import config
 from .abstractasyncworker import AbstractAsyncWorker
 from .autosave import AutoSave
@@ -11,8 +13,6 @@ from .loopmanager import LoopManager
 from .producer import Producer
 from .queuemanager import QueueManager
 from .stats import Stats
-
-logger = logging.getLogger('easyasyncio')
 
 __all__ = [
         'Context',
