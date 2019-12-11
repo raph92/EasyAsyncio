@@ -87,6 +87,8 @@ class WorkerDetails(widgets.Frame):
         string = 'Press Q to stop (twice to quit) | Press S to manually save'
         self.text.value = f'{string}{" " * 8}{WorkerDetails.error}'
         if self.worker:
+            # prevent mutation during iteration
+            worker_logs = self.worker.logs.copy()
             logs_ = [(msg, index) for index, msg in
                      enumerate(self.worker.logs)]
             logs_.reverse()
