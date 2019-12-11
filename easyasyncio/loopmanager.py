@@ -167,7 +167,10 @@ class LoopManager(Thread):
 
     def save(self) -> None:
         t = self.loop.create_task(self.context.save_thread.save_func())
-        self.loop.run_until_complete(t)
+        try:
+            self.loop.run_until_complete(t)
+        except RuntimeError:
+            pass
 
 
 class LoopManagerLoggingHandler(logging.Handler):
