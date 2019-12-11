@@ -17,13 +17,17 @@ class WithSessionProducer(Producer):
     async def work(self, number):
         """implement the business logic here"""
         await asyncio.sleep(1)
-        async with self.context.session.get(
-                'http://127.0.0.1:5500/temp.html',
-                headers=Constants.HEADERS
-        ) as response:
-            text = await response.read()
-            self.logger(str(text))
-        self.increment_stat()
+        try:
+            async with self.context.session.get(
+                    'http://127.0.0.1:5500/temp.html',
+                    headers=Constants.HEADERS
+            ) as response:
+                text = await response.read()
+                self.logger("%s %s", number, str(text))
+            self.increment_stat()
+        except Exception as e:
+            self.log.exception(e)
+            self.with_errors = True
 
     @property
     def name(self):

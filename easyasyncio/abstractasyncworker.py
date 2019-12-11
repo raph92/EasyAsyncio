@@ -1,14 +1,13 @@
 import abc
+import logging
 from abc import abstractmethod
 from asyncio import AbstractEventLoop, Semaphore, Future, Queue
 from collections import deque
 from typing import Set, Optional
 
-from . import start_date, logger
 from .context import Context
 
 
-# noinspection PyMethodMayBeStatic
 class AbstractAsyncWorker(abc.ABC):
     tasks: Set[Future]
     max_concurrent: int
@@ -27,6 +26,10 @@ class AbstractAsyncWorker(abc.ABC):
         self._status = ''
         self.logs: deque[str] = deque(maxlen=50)
         self.working = 0
+        self.log = logging.getLogger(type(self).__name__)
+        self.log.addHandler(WorkerLoggingHandler(self))
+        self.with_errors = False
+        # self.log.setLevel(logging.INFO)
 
     @property
     def queue(self) -> Queue:
@@ -45,8 +48,6 @@ class AbstractAsyncWorker(abc.ABC):
         self.context.workers.add(self)
         self.sem = Semaphore(self.max_concurrent)
         self.context.queues.new(self.name)
-        self.context.data.register(f'{self.name}_logs', list(), f'logs/{start_date}/{self.name}.logs',
-                                   False, False)
         self.status('initialized')
 
     async def preprocess(self, item):
@@ -59,14 +60,15 @@ class AbstractAsyncWorker(abc.ABC):
 
     async def queue_finished(self):
         """called when all tasks are finished with queue"""
-        self.logger(self.name + ' finished queueing')
+        self.log.debug('finished queueing')
         await self.queue.put(False)
 
     async def fill_queue(self):
         pass
 
     def status(self, *strings: str):
-        self._status = ' '.join([str(s) if not isinstance(s, str) else s for s in strings])
+        self._status = ' '.join(
+                [str(s) if not isinstance(s, str) else s for s in strings])
 
     async def tear_down(self):
         """this is called after all tasks are completed"""
@@ -77,7 +79,8 @@ class AbstractAsyncWorker(abc.ABC):
 
     def add_successor(self, successor: 'AbstractAsyncWorker'):
         """
-        The next async worker that will work on the data that this async worker gathers
+        The next async worker that will work on the data that
+        this async worker gathers
         """
         assert successor != self
         self.successor = successor
@@ -110,12 +113,19 @@ class AbstractAsyncWorker(abc.ABC):
         except:
             pass
         message = f'[{datetime.now().strftime("%H:%M:%S")}] {string}'
-        self.logs.append(message)
-        self.context.data[f'{self.name}_logs'].append(message)
-        if not self.context.loop_manager.showing_graphics:
-            logger.info('[%s]%s', self.name, message)
+        self.log.info(string)
 
     def time_left(self):
         elapsed_time = self.context.stats.elapsed_time
         per_second = self.context.stats[self.name] / elapsed_time
         return round((self.queue.qsize() + self.working) / per_second)
+
+
+class WorkerLoggingHandler(logging.Handler):
+    def __init__(self, worker: AbstractAsyncWorker,
+                 level=logging.DEBUG) -> None:
+        super().__init__(level)
+        self.worker = worker
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.worker.logs.append(record.getMessage())

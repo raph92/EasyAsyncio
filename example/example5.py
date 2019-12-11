@@ -21,11 +21,11 @@ class ConsumerNumberExample(Consumer):
         sum(list(range(number)))
         self.increment_stat()
         await asyncio.sleep(random.randint(1, 5))
-        self.logger('printed %s', number)
+        self.log.info('printed %s', number)
         return number
 
     async def tear_down(self):
-        print(self.name, 'done at', datetime.datetime.now())
+        self.log.info(self.name, 'done at', datetime.datetime.now())
 
     @property
     def name(self):
@@ -53,7 +53,7 @@ class ExampleProducer(Producer):
         self.logger('processed %s', num)
 
     async def tear_down(self):
-        print(self.name, 'done at', datetime.datetime.now())
+        self.log.info(self.name, 'done at', datetime.datetime.now())
 
     @property
     def name(self):

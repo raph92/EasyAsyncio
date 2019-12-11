@@ -26,7 +26,7 @@ class AutoSaveExample(Consumer):
         await asyncio.sleep(random.randint(1, 5))
         self.context.data['numbers'].add(number)
         self.context.stats['test_stat'] += 1
-        self.logger('Processed %s', number)
+        self.log.info('Processed %s', number)
 
     @property
     def name(self):
@@ -45,5 +45,5 @@ manager.context.data.register('numbers', set(), './numbers/numbers.txt')
 
 manager.add_tasks(consumer)
 manager.start()
-
+#
 manager.start_graphics()
