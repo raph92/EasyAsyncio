@@ -15,6 +15,7 @@ class Stats(typing.Counter[int]):
     _end_time = None
     data_found = 0
     initial_data_count = 0
+    do_not_calculate_per_second = set()
 
     def __init__(self, context: 'Context') -> None:
         super().__init__()
@@ -25,6 +26,11 @@ class Stats(typing.Counter[int]):
     @property
     def end_time(self) -> float:
         return self._end_time or time.time()
+
+    def set(self, name: str, value: int, calculate_per_second=False):
+        self[name] = value
+        if not calculate_per_second:
+            self.do_not_calculate_per_second.add(name)
 
     def get_count_strings(self) -> str:
         string = '\n'
