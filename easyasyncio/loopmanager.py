@@ -16,7 +16,8 @@ from .tui import on_screen_ready
 
 class LoopManager(Thread):
     """
-    The vision is that this class will handle the top level task gathering, run_until_complete, etc
+    The vision is that this class will handle the top level task gathering,
+    run_until_complete, etc
     """
     session: ClientSession
     running = True
