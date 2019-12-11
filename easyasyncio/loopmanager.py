@@ -155,8 +155,7 @@ class LoopManager(Thread):
             self.post_saving = True
             if self.context.save_thread:
                 self.save()
-            t = self.loop.create_task(self.context.stats_thread.display())
-            self.loop.run_until_complete(t)
+            self.context.stats_thread.display()
         except Exception as e:
             self.logger.exception(e)
         finally:
@@ -166,11 +165,7 @@ class LoopManager(Thread):
             self.logger.debug('post_shutdown saving finished')
 
     def save(self) -> None:
-        t = self.loop.create_task(self.context.save_thread.save_func())
-        try:
-            self.loop.run_until_complete(t)
-        except RuntimeError:
-            pass
+        self.context.save_thread.save_func()
 
 
 class LoopManagerLoggingHandler(logging.Handler):

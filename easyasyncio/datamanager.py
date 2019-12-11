@@ -94,7 +94,7 @@ class DataManager(UserDict):
         string += '\t\t    </---------------------TOTALS---------------------------->\n'
         return string.rstrip()
 
-    async def save(self):
+    def save(self):
         try:
             for name, value in self.items():
                 # check if this key has a file name
