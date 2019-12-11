@@ -78,7 +78,8 @@ class LoopManager(Thread):
             else:
                 self.loop.run_until_complete(
                         asyncio.gather(*self.worker_tasks, loop=self.loop))
-            self.succeeded = True
+            if not self.cancelling_all_tasks:
+                self.succeeded = True
             self.finished = True
         except asyncio.CancelledError:
             self.logger.debug('All tasks have been canceled')
