@@ -19,7 +19,6 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
     @abstractmethod
     async def fill_queue(self) -> None:
         """implement the queue filling logic here"""
-        pass
 
     async def worker(self, num: int) -> Coroutine:
         """get each item from the queue and pass it to self.work"""
@@ -49,7 +48,7 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
         try:
             self.status('filling queue')
             await self.fill_queue()
-            self.log.debug(self.name + ' finished populating queue')
+            self.log.debug('%s finished populating queue', self.name)
         except Exception as e:
             self.log.debug(str(e))
             raise e
@@ -57,7 +56,7 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
             self.status('creating workers')
             for _ in range(self.max_concurrent):
                 self.tasks.add(self.loop.create_task(self.worker(_)))
-            self.log.debug(self.name + ' finished creating workers')
+            self.log.debug('%s finished creating workers', self.name)
             self.status('processing')
             await self.queue_finished()
             await asyncio.gather(*self.tasks, loop=self.loop)

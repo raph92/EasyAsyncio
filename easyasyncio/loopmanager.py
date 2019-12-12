@@ -137,9 +137,12 @@ class LoopManager(Thread):
         self.cancelling_all_tasks = True
         for worker in self.context.workers:
             worker.queue.put_nowait(False)
-            for task in worker.tasks:
-                task.cancel()
-                worker.queue.put_nowait(False)
+            try:
+                for task in worker.tasks:
+                    task.cancel()
+                    worker.queue.put_nowait(False)
+            except RuntimeError:
+                pass
         try:
             for task in asyncio.all_tasks(loop=self.loop):
                 task.cancel()

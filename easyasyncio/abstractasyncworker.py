@@ -16,7 +16,7 @@ class AbstractAsyncWorker(abc.ABC):
     sem: Semaphore
     end_time = None
 
-    def __init__(self, max_concurrent=10) -> None:
+    def __init__(self, max_concurrent=20) -> None:
         self.tasks = set()
         self.max_concurrent = max_concurrent
         self.stats = set()
@@ -72,7 +72,6 @@ class AbstractAsyncWorker(abc.ABC):
 
     async def tear_down(self):
         """this is called after all tasks are completed"""
-        pass
 
     async def queue_successor(self, data):
         await self.successor.queue.put(data)
@@ -88,12 +87,10 @@ class AbstractAsyncWorker(abc.ABC):
     @abstractmethod
     async def run(self):
         """setup workers and start"""
-        pass
 
     @abstractmethod
     async def work(self, *args):
         """do business logic on each enqueued item"""
-        pass
 
     @property
     @abstractmethod
