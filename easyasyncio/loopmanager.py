@@ -132,6 +132,8 @@ class LoopManager(Thread):
     def cancel_all_tasks(self, _, _2) -> None:
         if self.cancelling_all_tasks:
             return
+        if not self.finished:
+            self.finished = True
         self.cancelling_all_tasks = True
         for worker in self.context.workers:
             worker.queue.put_nowait(False)
