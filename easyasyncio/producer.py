@@ -11,7 +11,7 @@ from .abstractasyncworker import AbstractAsyncWorker
 class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
     start = False  # whether this Producer will start instantly or not
 
-    def __init__(self, data: Any,
+    def __init__(self, data: Any = None,
                  **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.data = data
@@ -34,10 +34,9 @@ class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
             self.log.debug('%s worker %s retrieved queued data %s', self.name,
                            num, data)
             data = await self.preprocess(data)
-            async with self.sem:
-                result = await self.work(data)
-                self.queue.task_done()
-                self.results.append(await self.postprocess(result))
+            result = await self.work(data)
+            self.queue.task_done()
+            self.results.append(await self.postprocess(result))
 
     async def queue_finished(self):
         for _ in self.tasks:
