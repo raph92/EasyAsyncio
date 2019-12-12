@@ -90,7 +90,7 @@ class DataManager(UserDict):
                 continue
             # only print the length of iterable values
             if isinstance(v, Sized) and not isinstance(v, str):
-                string += f'\t\t\t    {k} count: {len(v)}\n'
+                string += f'\t\t\t    {k}: {len(v)}\n'
         string += '\t\t    </---------------------TOTALS---------------------------->\n'
         return string.rstrip()
 

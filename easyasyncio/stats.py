@@ -43,9 +43,9 @@ class Stats(typing.Counter[int]):
             for k, v in self.items():
                 if k in [s for p in self.context.workers for s in p.stats]:
                     continue
-                string += f'\t\t\t\t    {k} count: {v}\n'
+                string += f'\t\t\t\t    {k}: {v}\n'
                 if k not in self.do_not_calculate_per_second:
-                    string += (f'\t\t\t\t    {k}\'s count per second: '
+                    string += (f'\t\t\t\t    {k}\'s per second: '
                                f'{v / self.elapsed_time: .2f}\n')
         string += '\t\t\t    </-----STATS----->\n\n'
         return string.rstrip()
@@ -63,9 +63,9 @@ class Stats(typing.Counter[int]):
         string += f'\t\t\t\t    {worker.name} workers: {worker.max_concurrent}\n'
         string += f'\t\t\t\t    {worker.name} status: {worker._status}\n'
         for s in worker.stats:
-            string += f'\t\t\t\t    {s} count: {self[s]}\n'
+            string += f'\t\t\t\t    {s}: {self[s]}\n'
             if s not in self.do_not_calculate_per_second:
-                string += (f'\t\t\t\t    {s}\'s count per second: '
+                string += (f'\t\t\t\t    {s}\'s per second: '
                            f'{self[s] / self.elapsed_time: .2f}\n')
         i = 1 if len(top_worker_section_string) % 2 != 0 else 4
         string += (f'\t\t\t    </'
