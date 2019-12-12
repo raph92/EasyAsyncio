@@ -24,7 +24,7 @@ class AutoSave:
 
     async def run(self) -> None:
         self.logger.debug('%s starting...', self.name)
-        while self.context.running:
+        while not self.context.loop_manager.finished:
             try:
                 await asyncio.sleep(self.interval, loop=self.context.loop)
                 if not self.context.running:

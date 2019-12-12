@@ -107,11 +107,11 @@ class LoopManager(Thread):
     def stop(self) -> None:
         if self.shutting_down:
             return
+        self.shutting_down = True
         if not self.showing_graphics:
             self.logger.debug('Ending program...')
         if self.status != 'Finished':
             self.status = 'Stopping...'
-        self.shutting_down = True
         try:
             self.cancel_all_tasks(None, None)
             for task in self.scheduled_tasks:

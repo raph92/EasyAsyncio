@@ -100,7 +100,7 @@ class StatsDisplay:
 
     async def run(self) -> None:
         self.logger.debug('%s starting...', self.name)
-        while self.context.running:
+        while not self.context.loop_manager.finished:
             await asyncio.sleep(self.interval, loop=self.context.loop)
             self.display()
             if not self.context.running:
