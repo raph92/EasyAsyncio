@@ -46,4 +46,4 @@ manager.context.data.register('numbers', set(), './numbers/numbers.txt')
 manager.add_tasks(consumer)
 manager.start()
 #
-manager.start_graphics()
+# manager.start_graphics()

@@ -35,7 +35,7 @@ class AbstractAsyncWorker(abc.ABC):
     def queue(self) -> Queue:
         return self.context.queues.get(self.name)
 
-    def increment_stat(self, n=1, name=None):
+    def increment_stat(self, n=1, name: str = None) -> None:
         """increment the count of whatever this prosumer is processing"""
         if not name:
             name = self.name
