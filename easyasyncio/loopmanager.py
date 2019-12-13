@@ -108,8 +108,7 @@ class LoopManager(Thread):
         if self.shutting_down:
             return
         self.shutting_down = True
-        if not self.showing_graphics:
-            self.logger.debug('Ending program...')
+        self.logger.debug('Ending program...')
         if self.status != 'Finished':
             self.status = 'Stopping...'
         try:
@@ -120,7 +119,7 @@ class LoopManager(Thread):
             pass
         finally:
             self.post_shutdown()
-            for worker in self.context.workers:
+            for worker in [w for w in self.context.workers if w.running]:
                 stopped = 'finished' if self.finished else 'manually stopped'
                 worker.logger(stopped)
                 worker.status(stopped)
@@ -132,8 +131,6 @@ class LoopManager(Thread):
     def cancel_all_tasks(self, _, _2) -> None:
         if self.cancelling_all_tasks:
             return
-        if not self.finished:
-            self.finished = True
         self.cancelling_all_tasks = True
         for worker in self.context.workers:
             worker.queue.put_nowait(False)
@@ -173,6 +170,10 @@ class LoopManager(Thread):
 
     def save(self) -> None:
         self.context.save_thread.save_func()
+
+    @property
+    def closing(self):
+        return self.finished or self.cancelling_all_tasks or self.shutting_down
 
 
 class LoopManagerLoggingHandler(logging.Handler):
