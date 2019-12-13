@@ -14,6 +14,8 @@ from .producer import Producer
 from .queuemanager import QueueManager
 from .stats import Stats
 
+__version__ = '8.0.1'
+
 __all__ = [
         'Context',
         'JobManager',

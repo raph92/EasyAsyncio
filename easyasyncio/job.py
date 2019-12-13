@@ -98,10 +98,6 @@ class Job(abc.ABC):
         for _ in range(self.max_concurrent):
             self.tasks.add(self.loop.create_task(self.worker(_)))
 
-    async def pre_process(self, item):
-        """do any pre-processing to the queue item here"""
-        return item
-
     async def worker(self, num: int):
         """get each item from the queue and pass it to self.work"""
         self.log.debug('worker %s started', num)
@@ -115,18 +111,13 @@ class Job(abc.ABC):
                 break
             self.log.debug('worker %s retrieved queued data %s',
                            num, data)
-            data = await self.pre_process(data)
             result = await self.do_work(data)
             self.queue.task_done()
-            self.results.append(await self.post_process(result))
+            self.results.append(result)
 
     @abstractmethod
     async def do_work(self, *args):
         """do business logic on each enqueued item"""
-
-    async def post_process(self, item, *args, **kwargs):
-        """do any postprocessing to the resulting item here"""
-        return item
 
     async def _on_finish(self):
         self.end_time = time()
@@ -171,9 +162,6 @@ class Job(abc.ABC):
         status = ' '.join(
                 [str(s) if not isinstance(s, str) else s for s in strings])
         self.info['status'] = status
-
-    def logger(self, string: str, *args):
-        self.log.info(string)
 
     def time_left(self):
         elapsed_time = self.context.stats.elapsed_time
