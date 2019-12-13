@@ -63,10 +63,10 @@ class Stats(typing.Counter[int]):
         string += f'\t\t\t\t    {worker.name} workers: {worker.max_concurrent}\n'
         string += f'\t\t\t\t    {worker.name} status: {worker._status}\n'
         for s in worker.stats:
-            string += f'\t\t\t\t    {s}: {self[s]}\n'
+            string += f'\t\t\t\t    {s}: {worker.stats[s]}\n'
             if s not in self.do_not_calculate_per_second:
                 string += (f'\t\t\t\t    {s}\'s per second: '
-                           f'{self[s] / self.elapsed_time: .2f}\n')
+                           f'{worker.stats[s] / self.elapsed_time: .2f}\n')
         i = 1 if len(top_worker_section_string) % 2 != 0 else 4
         string += (f'\t\t\t    </'
                    f'{"-" * int((len(top_worker_section_string) / 3 - i))}'

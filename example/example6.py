@@ -20,7 +20,8 @@ class AutoSaveExample(Producer):
         await self.queue_finished()
 
     async def work(self, number):
-        """this logic gets called after an object is retrieved from the queue"""
+        """this logic gets called after an object
+        is retrieved from the queue"""
         sum(list(range(number)))
         self.increment_stat()
         await asyncio.sleep(random.randint(1, 5))

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
         name='easyasyncio',
-        version='7.0.0-beta',
+        version='7.1.0-beta',
         packages=['easyasyncio'],
         url='https://github.com/RaphaelNanje/easyasyncio.git',
         license='MIT',
@@ -10,12 +10,10 @@ setup(
         author_email='rtnanje@gmail.com',
         description='A library that makes asyncio simple',
         install_requires=[
-                'logzero',
                 'aiohttp',
-                'requests',
                 'easyfilemanager @ https://github.com/RaphaelNanje/'
                 'easyfilemanager/archive/master.zip',
                 'asciimatics'
         ],
-        python_requies='~=3.6'
+        python_requires='~=3.6'
 )

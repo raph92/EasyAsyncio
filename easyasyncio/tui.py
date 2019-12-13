@@ -143,10 +143,10 @@ class WorkerDetails(widgets.Frame):
         for stat in self.worker.stats:
             stat_list.append((stat.center(24, '-'), len(stat_list)))
 
-            stat_list.append((f'count: {self.manager.context.stats[stat]}',
+            stat_list.append((f'count: {self.worker.stats[stat]}',
                               len(stat_list)))
             elapsed_time = self.manager.context.stats.elapsed_time
-            per_second = self.manager.context.stats[stat] / elapsed_time
+            per_second = self.worker.stats[stat] / elapsed_time
             stat_list.append((f'per second: '
                               f'{per_second : .2f}',
                               len(stat_list)))

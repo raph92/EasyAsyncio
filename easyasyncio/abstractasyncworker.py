@@ -3,7 +3,7 @@ import asyncio
 import logging
 from abc import abstractmethod
 from asyncio import AbstractEventLoop, Semaphore, Future, Queue, CancelledError
-from collections import deque
+from collections import deque, Counter
 from time import time
 from typing import Set, Optional
 
@@ -18,13 +18,17 @@ class AbstractAsyncWorker(abc.ABC):
     sem: Semaphore
     end_time = None
 
-    def __init__(self, max_concurrent=20) -> None:
+    def __init__(self, max_concurrent=20,
+                 predecessor: 'Optional[AbstractAsyncWorker]' = None) -> None:
         self.tasks = set()
         self.max_concurrent = max_concurrent
-        self.stats = set()
+        self.stats = Counter()
         self.results = []
         self._done = False
+        self.predecessor = predecessor
         self.successor: 'Optional[AbstractAsyncWorker]' = None
+        if predecessor:
+            self.predecessor.successor = self
         self._status = ''
         self.logs: deque[str] = deque(maxlen=50)
         self.working = 0
@@ -103,7 +107,6 @@ class AbstractAsyncWorker(abc.ABC):
             result = await self.work(data)
             self.queue.task_done()
             self.results.append(await self.post_process(result))
-            self.status('finished')
 
     @abstractmethod
     async def work(self, *args):
@@ -131,8 +134,7 @@ class AbstractAsyncWorker(abc.ABC):
         """increment the count of whatever this prosumer is processing"""
         if not name:
             name = self.name
-        self.stats.add(name)
-        self.context.stats[name] += n
+        self.stats[name] += n
 
     async def queue_successor(self, data):
         await self.successor.queue.put(data)
@@ -144,6 +146,10 @@ class AbstractAsyncWorker(abc.ABC):
         """
         assert successor != self
         self.successor = successor
+        self.successor.predecessor = self
+
+    async def queue_predecessor(self, data):
+        await self.predecessor.queue.put(data)
 
     def status(self, *strings: str):
         self._status = ' '.join(
