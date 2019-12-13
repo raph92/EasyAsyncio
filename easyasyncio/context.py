@@ -36,7 +36,7 @@ class Context:
 
     @property
     def running(self):
-        return self.loop_manager.running
+        return not self.loop_manager.closing
 
     @property
     def loop(self):

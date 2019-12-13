@@ -109,7 +109,8 @@ class WorkerDetails(widgets.Frame):
 
     def _refresh_header(self) -> None:
         last_saved = self.manager.context.save_thread.last_saved
-        self.running_label._text = f'Running: {self.manager.running}'
+        elapsed_time = self.manager.context.stats.elapsed_time
+        self.running_label._text = f'Elapsed time: {elapsed_time : .2f}'
         self.workers_label._text = (f'Workers: '
                                     f'{len(self.manager.context.workers)}')
         self.status_label._text = f'Status: {self.manager.status}'
@@ -139,17 +140,12 @@ class WorkerDetails(widgets.Frame):
 
     def _update_stats(self) -> None:
         stat_list: List[Tuple[str, int]] = []
-
-        elapsed_time = self.manager.context.stats.elapsed_time
-        stat_list.append((
-                f'elapsed time: {elapsed_time : .2f}',
-                len(stat_list)))
-        stat_list.append(('', len(stat_list)))
         for stat in self.worker.stats:
             stat_list.append((stat.center(24, '-'), len(stat_list)))
 
             stat_list.append((f'count: {self.manager.context.stats[stat]}',
                               len(stat_list)))
+            elapsed_time = self.manager.context.stats.elapsed_time
             per_second = self.manager.context.stats[stat] / elapsed_time
             stat_list.append((f'per second: '
                               f'{per_second : .2f}',
