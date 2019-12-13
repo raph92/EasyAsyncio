@@ -31,7 +31,7 @@ class ExampleProducer(Producer):
         super().__init__(data)
 
     async def fill_queue(self):
-        for i in range(self.data):
+        for i in range(self.input_data):
             await self.queue.put(i)
         await self.queue_finished()
 

@@ -4,10 +4,10 @@ import random
 import sys
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
-from easyasyncio import LoopManager, Consumer
+from easyasyncio import LoopManager, Producer
 
 
-class AutoSaveExample(Consumer):
+class AutoSaveExample(Producer):
     """print numbers asynchronously"""
 
     def __init__(self, **kwargs) -> None:
@@ -35,7 +35,7 @@ class AutoSaveExample(Consumer):
         This will effect how the StatsDisplay displays information about
         this Prosumer.
         """
-        return 'consume_number'
+        return 'PrintNumber'
 
 
 manager = LoopManager()
@@ -46,4 +46,4 @@ manager.context.data.register('numbers', set(), './numbers/numbers.txt')
 manager.add_tasks(consumer)
 manager.start()
 #
-# manager.start_graphics()
+manager.start_graphics()

@@ -11,7 +11,7 @@ class WithSessionProducer(Producer):
 
     async def fill_queue(self):
         """override this abstract method to fill the queue"""
-        for i in range(0, self.data):
+        for i in range(0, self.input_data):
             await self.queue.put(i)
 
     async def work(self, number):

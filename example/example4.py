@@ -32,7 +32,7 @@ class CharProducer(Producer):
         super().__init__(list(data), **kwargs)
 
     async def fill_queue(self):
-        for i in self.data:
+        for i in self.input_data:
             await self.queue.put(i)
 
     async def work(self, char):

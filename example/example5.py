@@ -8,13 +8,11 @@ from easyasyncio import Producer, LoopManager, Consumer
 class ConsumerNumberExample(Consumer):
     """print numbers asynchronously"""
 
+    async def fill_queue(self):
+        pass
+
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-
-    async def fill_queue(self):
-        for i in range(1000):
-            await self.queue.put(i)
-        await self.queue_finished()
 
     async def work(self, number):
         """this logic gets called after an object is retrieved from the queue"""
@@ -43,14 +41,14 @@ class ExampleProducer(Producer):
         super().__init__(data, **kwargs)
 
     async def fill_queue(self):
-        for i in range(self.data):
+        for i in range(self.input_data):
             await self.queue.put(i)
+        await self.queue_finished()
 
     async def work(self, num):
         sum(list(range(num)))
         self.increment_stat()
-        await asyncio.sleep(random.randint(1, 5))
-        self.logger('processed %s', num)
+        await self.queue_successor(num)
 
     async def tear_down(self):
         self.log.info(self.name, 'done at', datetime.datetime.now())
@@ -63,8 +61,8 @@ class ExampleProducer(Producer):
 manager = LoopManager()
 
 consumer = ConsumerNumberExample(max_concurrent=5)
-producer = ExampleProducer(1000, max_concurrent=5)
-
+producer = ExampleProducer(10, max_concurrent=5)
+producer.add_successor(consumer)
 manager.add_tasks(producer, consumer)
 manager.start()
 
