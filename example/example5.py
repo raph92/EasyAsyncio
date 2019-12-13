@@ -15,7 +15,8 @@ class ConsumerNumberExample(Consumer):
         super().__init__(**kwargs)
 
     async def work(self, number):
-        """this logic gets called after an object is retrieved from the queue"""
+        """this logic gets called after an
+        object is retrieved from the queue"""
         sum(list(range(number)))
         self.increment_stat()
         await asyncio.sleep(random.randint(1, 5))
@@ -51,7 +52,8 @@ class ExampleProducer(Producer):
         await self.queue_successor(num)
 
     async def tear_down(self):
-        self.log.info(self.name, 'done at', datetime.datetime.now())
+        self.log.info('done at %s', datetime.datetime.now())
+        await self.successor.queue_finished()
 
     @property
     def name(self):

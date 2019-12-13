@@ -54,16 +54,16 @@ class AbstractAsyncWorker(abc.ABC):
         """setup workers and start"""
         self.log.debug('starting...')
         self.running = True
-        # fill queue
         try:
             self.status('filling queue')
             self.log.debug('creating queue...')
-            await self.fill_queue()
+            # create workers
+            self.create_workers()
         except Exception as e:
             self.log.exception(e)
         else:
-            # create workers
-            self.create_workers()
+            # fill queue
+            await self.fill_queue()
             # process
             await asyncio.gather(*self.tasks, loop=self.loop)
         finally:
@@ -103,6 +103,7 @@ class AbstractAsyncWorker(abc.ABC):
             result = await self.work(data)
             self.queue.task_done()
             self.results.append(await self.post_process(result))
+            self.status('finished')
 
     @abstractmethod
     async def work(self, *args):
