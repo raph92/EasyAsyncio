@@ -2,10 +2,10 @@ import asyncio
 import datetime
 import random
 
-from easyasyncio import Producer, LoopManager, Consumer
+from easyasyncio import JobManager, Job
 
 
-class ConsumerNumberExample(Consumer):
+class PrintJob(Job):
     """print numbers asynchronously"""
 
     async def fill_queue(self):
@@ -14,7 +14,7 @@ class ConsumerNumberExample(Consumer):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-    async def work(self, number):
+    async def do_work(self, number):
         """this logic gets called after an
         object is retrieved from the queue"""
         sum(list(range(number)))
@@ -23,8 +23,8 @@ class ConsumerNumberExample(Consumer):
         self.log.info('printed %s', number)
         return number
 
-    async def tear_down(self):
-        self.log.info(self.name, 'done at', datetime.datetime.now())
+    async def on_finish(self):
+        self.log.info('done at %s', datetime.datetime.now())
 
     @property
     def name(self):
@@ -33,10 +33,10 @@ class ConsumerNumberExample(Consumer):
         This will effect how the StatsDisplay displays information about
         this Prosumer.
         """
-        return 'consume_number'
+        return 'PrintNumJob'
 
 
-class ExampleProducer(Producer):
+class QueueJob(Job):
 
     def __init__(self, data, **kwargs):
         super().__init__(data, **kwargs)
@@ -46,26 +46,29 @@ class ExampleProducer(Producer):
             await self.queue.put(i)
         await self.queue_finished()
 
-    async def work(self, num):
+    async def do_work(self, num):
         sum(list(range(num)))
         self.increment_stat()
+        self.log.debug('adding %s to successor', num)
         await self.queue_successor(num)
+        self.log.debug('done adding %s to successor', num)
 
-    async def tear_down(self):
+    async def on_finish(self):
         self.log.info('done at %s', datetime.datetime.now())
         await self.successor.queue_finished()
 
     @property
     def name(self):
-        return 'produce_number'
+        return 'QueueNumJob'
 
 
-manager = LoopManager()
+manager = JobManager()
 
-consumer = ConsumerNumberExample(max_concurrent=5)
-producer = ExampleProducer(10, max_concurrent=5)
-producer.add_successor(consumer)
-manager.add_tasks(producer, consumer)
+producer = QueueJob(100, max_concurrent=5)
+consumer = PrintJob(max_concurrent=5,
+                    predecessor=producer,
+                    max_queue_size=5)
+manager.add_jobs(producer, consumer)
 manager.start()
 
-manager.start_graphics()
+# manager.start_graphics()

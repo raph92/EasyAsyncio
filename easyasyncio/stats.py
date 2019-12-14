@@ -8,6 +8,9 @@ from . import logger
 if TYPE_CHECKING:
     from .context import Context
 
+spacer4 = '\t\t\t\t    '
+spacer3 = '\t\t\t    '
+
 
 class Stats(typing.Counter[int]):
     """keep track of various stats"""
@@ -34,53 +37,45 @@ class Stats(typing.Counter[int]):
 
     def get_count_strings(self) -> str:
         string = '\n'
-        for worker in self.context.workers:
+        for worker in self.context.jobs:
             string = self.get_worker_stats(worker, string)
-        string += '\t\t\t    <-----STATS----->'
-        string += '\n\t\t\t\t    elapsed time: {time:.6f} secs\n'.format(
-                time=self.elapsed_time)
+        string += f'{spacer3}<{"STATS".center(29, "-")}>'
+        string += f'\n{spacer4}elapsed time: {self.elapsed_time:.6f} secs\n'
         if self.items():
             for k, v in self.items():
-                if k in [s for p in self.context.workers for s in p.stats]:
+                if k in [s for p in self.context.jobs for s in p.stats]:
                     continue
-                string += f'\t\t\t\t    {k}: {v}\n'
+                string += f'{spacer4}{k}: {v}\n'
                 if k not in self.do_not_calculate_per_second:
-                    string += (f'\t\t\t\t    {k}\'s per second: '
+                    string += (f'{spacer4}{k} per second: '
                                f'{v / self.elapsed_time: .2f}\n')
-        string += '\t\t\t    </-----STATS----->\n\n'
+        string += f'{spacer3}<{"END STATS".center(29, "-")}>\n\n'
         return string.rstrip()
 
     def get_worker_stats(self, worker, string):
         from .consumer import Consumer
-        top_worker_section_string = f'<-----WORKER {worker.name}----->\n'
-        string += '\t\t\t    ' + top_worker_section_string
+        worker_stats_str = f'<{f"JOB {worker.name}".center(29, "-")}>\n'
+        string += f'{spacer3}' + worker_stats_str
         if isinstance(worker, Consumer):
-            string += (f'\t\t\t\t    {worker.name} queue: '
+            string += (f'{spacer4}queue: '
                        f'{worker.working + worker.queue.qsize()} items left\n')
         else:
-            string += (f'\t\t\t\t    {worker.name} queue: '
+            string += (f'{spacer4}queue: '
                        f'{worker.queue.qsize()} items left\n')
-        string += f'\t\t\t\t    {worker.name} workers: {worker.max_concurrent}\n'
-        string += f'\t\t\t\t    {worker.name} status: {worker._status}\n'
-        for s in worker.stats:
-            string += f'\t\t\t\t    {s}: {worker.stats[s]}\n'
-            if s not in self.do_not_calculate_per_second:
-                string += (f'\t\t\t\t    {s}\'s per second: '
-                           f'{worker.stats[s] / self.elapsed_time: .2f}\n')
-        i = 1 if len(top_worker_section_string) % 2 != 0 else 4
-        string += (f'\t\t\t    </'
-                   f'{"-" * int((len(top_worker_section_string) / 3 - i))}'
-                   f'WORKER'
-                   f'{"-" * int((len(top_worker_section_string) / 3))}'
-                   f'----->\n\n')
+        for key, value in worker.info.items():
+            string += f'{spacer4}{key}: {value}\n'
+        for key, value in worker.stats.items():
+            string += f'{spacer4}{key}: {value}\n'
+            if key not in self.do_not_calculate_per_second:
+                string += (f'{spacer4}{key} per second: '
+                           f'{value / self.elapsed_time: .2f}\n')
+        string += f'{spacer3}<{"END JOB".center(29, "-")}>\n'
         return string
 
     def get_stats_string(self) -> str:
-        string = ('\n\t\t    <---------------------'
-                  'SESSION STATS--------------------->')
+        string = f'\n\t\t    <{"SESSION".center(55, "-")}>'
         string += self.get_count_strings()
-        string += ('\n\t\t    </---------------------'
-                   'SESSION STATS--------------------->\n')
+        string += f'\n\t\t    <{"END SESSION".center(55, "-")}>\n'
 
         return string
 

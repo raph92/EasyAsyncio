@@ -1,10 +1,10 @@
 import abc
 from typing import Any
 
-from .abstractasyncworker import AbstractAsyncWorker
+from .job import Job
 
 
-class Producer(AbstractAsyncWorker, metaclass=abc.ABCMeta):
+class Producer(Job, metaclass=abc.ABCMeta):
     start = False  # whether this Producer will start instantly or not
 
     def __init__(self, input_data: Any = None,

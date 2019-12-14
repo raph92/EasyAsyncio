@@ -11,8 +11,8 @@ from asciimatics.screen import Screen, _CursesScreen
 from . import logger
 
 if TYPE_CHECKING:
-    from .loopmanager import LoopManager
-    from .abstractasyncworker import AbstractAsyncWorker
+    from .jobmanager import JobManager
+    from .job import Job
 
 logger = logger.getChild('tui')
 
@@ -28,7 +28,7 @@ class WorkerDetails(widgets.Frame):
     error = ''
     status = ''
 
-    def __init__(self, screen: Screen, manager: 'LoopManager') -> None:
+    def __init__(self, screen: Screen, manager: 'JobManager') -> None:
         super(WorkerDetails, self).__init__(screen,
                                             screen.height - 5,
                                             screen.width - 10,
@@ -40,7 +40,7 @@ class WorkerDetails(widgets.Frame):
         # Create the form for displaying the list of contacts.
         self.manager = manager
         self.workers = list(self.manager.context.workers)
-        self.worker: 'Optional[AbstractAsyncWorker]' = self.workers[0]
+        self.worker: 'Optional[Job]' = self.workers[0]
         self.set_theme('tlj256')
 
         # header
@@ -63,23 +63,12 @@ class WorkerDetails(widgets.Frame):
         # ml-1
         self.main_layout.add_widget(widgets.VerticalDivider(), 1)
         # ml-2
-        stat_list = []
-        for stat in self.worker.stats:
-            value = self.manager.context.stats[stat]
-            stat_list.append((
-                    f'{stat} count: {value}',
-                    stat))
-            elapsed_time = self.manager.context.stats.elapsed_time
-            stat_list.append((f'{stat}\'s count per second: '
-                              f'{value / elapsed_time}',
-                              stat))
         self.worker_stat_list = widgets.ListBox(widgets.Widget.FILL_COLUMN,
-                                                stat_list)
+                                                [('', '-----')])
         self.main_layout.add_widget(self.worker_stat_list, 2)
         # ml-4
         self.log_list = widgets.ListBox(widgets.Widget.FILL_COLUMN,
-                                        [(msg, index) for index, msg in
-                                         enumerate(self.worker.logs)])
+                                        [('', '-----')])
         self.main_layout.add_widget(self.log_list, 4)
 
         # footer
@@ -147,8 +136,7 @@ class WorkerDetails(widgets.Frame):
                               len(stat_list)))
             elapsed_time = self.manager.context.stats.elapsed_time
             per_second = self.worker.stats[stat] / elapsed_time
-            stat_list.append((f'per second: '
-                              f'{per_second : .2f}',
+            stat_list.append((f'per second: {per_second : .2f}',
                               len(stat_list)))
             stat_list.append(('-' * 24, len(stat_list)))
             stat_list.append(('', len(stat_list)))
@@ -159,10 +147,9 @@ class WorkerDetails(widgets.Frame):
         stat_list.append((
                 queue_string,
                 len(stat_list)))
-        stat_list.append(
-                (f'workers: {self.worker.max_concurrent}', len(stat_list)))
-        stat_list.append(
-                (f'status: {self.worker._status}', len(stat_list)))
+        for stat, value in self.worker.info.items():
+            stat_list.append(
+                    (f'{stat}: {value}', len(stat_list)))
         self.worker_stat_list._options = stat_list
 
     def _initiate_header(self) -> None:
@@ -214,7 +201,7 @@ class WorkerDetails(widgets.Frame):
             self.selected_total = True
 
 
-def demo(screen: Screen, manager: 'LoopManager') -> None:
+def demo(screen: Screen, manager: 'JobManager') -> None:
     def on_input(event: KeyboardEvent) -> None:
         try:
             if event.key_code == 113:
@@ -239,7 +226,7 @@ def demo(screen: Screen, manager: 'LoopManager') -> None:
                 unhandled_input=on_input)
 
 
-def on_screen_ready(manager: 'LoopManager') -> None:
+def on_screen_ready(manager: 'JobManager') -> None:
     while manager.running:
         try:
             Screen.wrapper(demo, catch_interrupt=True, arguments=[manager])

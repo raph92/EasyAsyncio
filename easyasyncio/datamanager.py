@@ -84,14 +84,14 @@ class DataManager(UserDict):
 
     def get_data_string(self) -> str:
         string = ''
-        string += f'\n\t\t    <{"TOTALS".center(50, "-")}>\n'
+        string += f'\n\t\t    <{"TOTALS".center(55, "-")}>\n'
         for k, v in self.items():
             if k in self.do_not_display_list:
                 continue
             # only print the length of iterable values
             if isinstance(v, Sized) and not isinstance(v, str):
                 string += f'\t\t\t    {k}: {len(v)}\n'
-        string += '\t\t    </---------------------TOTALS---------------------------->\n'
+        string += f'\t\t    <{"END TOTALS".center(55, "-")}>\n'
         return string.rstrip()
 
     def save(self):

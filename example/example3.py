@@ -1,6 +1,6 @@
 import asyncio
 
-from easyasyncio import Producer, LoopManager, Consumer
+from easyasyncio import Producer, JobManager, Consumer
 
 
 class ConsumerNumberExample(Consumer):
@@ -9,7 +9,7 @@ class ConsumerNumberExample(Consumer):
     def __init__(self) -> None:
         super().__init__()
 
-    async def work(self, number):
+    async def do_work(self, number):
         """this logic gets called after an object is retrieved from the queue"""
         await asyncio.sleep(1)
         self.logger(number)
@@ -35,11 +35,11 @@ class ExampleProducer(Producer):
             await self.queue.put(i)
         await self.queue_finished()
 
-    async def work(self, num):
+    async def do_work(self, num):
         await self.queue_successor(num)
         self.increment_stat()
 
-    async def tear_down(self):
+    async def on_finish(self):
         await self.successor.queue_finished()
 
     @property
@@ -47,12 +47,12 @@ class ExampleProducer(Producer):
         return 'produce_number'
 
 
-manager = LoopManager(False)
+manager = JobManager(False)
 consumer = ConsumerNumberExample()
 producer = ExampleProducer(100)
 producer.add_successor(consumer)
 consumer.max_concurrent = 5
-manager.add_tasks(consumer, producer)
+manager.add_jobs(consumer, producer)
 
 manager.start()
 

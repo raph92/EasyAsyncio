@@ -2,9 +2,9 @@ import shutil
 
 import pytest
 
-from easyasyncio import LoopManager
+from easyasyncio import JobManager
 
-manager = LoopManager()
+manager = JobManager()
 data = manager.context.data
 
 shutil.rmtree('./testfiles/')

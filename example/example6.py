@@ -4,7 +4,7 @@ import random
 import sys
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
-from easyasyncio import LoopManager, Producer
+from easyasyncio import JobManager, Producer
 
 
 class AutoSaveExample(Producer):
@@ -19,7 +19,7 @@ class AutoSaveExample(Producer):
                 await self.queue.put(i)
         await self.queue_finished()
 
-    async def work(self, number):
+    async def do_work(self, number):
         """this logic gets called after an object
         is retrieved from the queue"""
         sum(list(range(number)))
@@ -39,12 +39,12 @@ class AutoSaveExample(Producer):
         return 'PrintNumber'
 
 
-manager = LoopManager()
+manager = JobManager()
 consumer = AutoSaveExample(max_concurrent=15)
 
 manager.context.data.register('numbers', set(), './numbers/numbers.txt')
 
-manager.add_tasks(consumer)
+manager.add_jobs(consumer)
 manager.start()
 #
 manager.start_graphics()

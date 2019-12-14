@@ -1,4 +1,3 @@
-from asyncio import AbstractEventLoop
 from typing import TYPE_CHECKING, Set
 
 from aiohttp import ClientSession
@@ -10,19 +9,19 @@ from .settings import Settings
 from .stats import Stats, StatsDisplay
 
 if TYPE_CHECKING:
-    from .loopmanager import LoopManager
-    from .abstractasyncworker import AbstractAsyncWorker
+    from .jobmanager import JobManager
+    from .job import Job
 
 
 class Context:
-    """The purpose of this class is to access all important objects from one place"""
+    """The purpose of this class is to access all important
+    objects from one place"""
     settings = Settings()
     queues: QueueManager
-    loop: AbstractEventLoop
-    workers: 'Set[AbstractAsyncWorker]' = set()
+    jobs: 'Set[Job]' = set()
     save_thread: 'AutoSave' = None
     stats_thread: 'StatsDisplay' = None
-    loop_manager: 'LoopManager'
+    loop_manager: 'JobManager'
     session: ClientSession
 
     data = DataManager()

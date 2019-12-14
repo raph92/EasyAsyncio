@@ -3,18 +3,19 @@ import collections
 import logging
 import signal
 import time
-from asyncio import Future, AbstractEventLoop
+from asyncio import Future, AbstractEventLoop, QueueFull
 from threading import Thread
 from typing import Set
 
 from aiohttp import ClientSession
 
-from .abstractasyncworker import AbstractAsyncWorker
+from . import logger
 from .context import Context
+from .job import Job
 from .tui import on_screen_ready
 
 
-class LoopManager(Thread):
+class JobManager(Thread):
     """
     The vision is that this class will handle the top level task gathering,
     run_until_complete, etc
@@ -26,7 +27,7 @@ class LoopManager(Thread):
     post_saving = False
     finished = False
     showing_graphics = False
-    worker_tasks: Set[Future] = set()
+    jobs: Set[Future] = set()
     scheduled_tasks: Set[Future] = set()
     loop: AbstractEventLoop = None
     status = 'Starting...'
@@ -42,24 +43,23 @@ class LoopManager(Thread):
         self.use_session = use_session
         signal.signal(signal.SIGINT, self.cancel_all_tasks)
         signal.signal(signal.SIGTERM, self.cancel_all_tasks)
-        self.logger = logging.getLogger(type(self).__name__)
-        self.logger.addHandler(LoopManagerLoggingHandler(self))
+        self.logger = logger.getChild('JobManager')
+        # self.logger.addHandler(LoopManagerLoggingHandler(self))
 
     def start_graphics(self):
+        self.showing_graphics = True
+
+        file_handler = logging.getLogger('').handlers[0]
+        self.logger.propagate = False
+        self.logger.addHandler(file_handler)
+        self.context.stats_thread.logger.propagate = False
+
+        logging.getLogger('').addHandler(LoopManagerLoggingHandler(self))
+
+        for w in self.context.jobs:
+            w.log.propagate = False
+            w.log.addHandler(file_handler)
         try:
-            self.showing_graphics = True
-
-            file_handler = logging.getLogger('').handlers[0]
-            self.logger.propagate = False
-            self.logger.addHandler(file_handler)
-            self.context.stats_thread.logger.propagate = False
-
-            logging.getLogger('').addHandler(LoopManagerLoggingHandler(self))
-
-            for w in self.context.workers:
-                w.log.propagate = False
-                w.log.addHandler(file_handler)
-
             on_screen_ready(self)
         except Exception as e:
             self.logger.exception(e)
@@ -67,18 +67,17 @@ class LoopManager(Thread):
     def run(self):
         try:
             if self.auto_save:
-                self.scheduled_tasks.add(
-                        self.loop.create_task(self.context.save_thread.run()))
-            self.scheduled_tasks.add(
-                    self.loop.create_task(self.context.stats_thread.run()))
-            self.context.stats.start_time = time.time()
+                self.scheduled_tasks.add(self.loop.create_task(
+                        self.context.save_thread.run()))
+            self.scheduled_tasks.add(self.loop.create_task(
+                    self.context.stats_thread.run()))
             self.status = 'Running'
-            self.logger.info('Started')
+            self.logger.info('Starting %s jobs', len(self.jobs))
+            self.context.stats.start_time = time.time()
             if self.use_session:
-                self.loop.run_until_complete(self.use_with_session())
-            else:
-                self.loop.run_until_complete(
-                        asyncio.gather(*self.worker_tasks, loop=self.loop))
+                self.context.session = ClientSession(loop=self.loop)
+            self.loop.run_until_complete(
+                    asyncio.gather(*self.jobs, loop=self.loop))
             if not self.cancelling_all_tasks:
                 self.succeeded = True
             self.finished = True
@@ -90,19 +89,14 @@ class LoopManager(Thread):
             self.context.stats._end_time = time.time()
             self.stop()
 
-    async def use_with_session(self):
-        async with ClientSession(loop=self.loop) as session:
-            self.context.session = session
-            await asyncio.gather(*self.worker_tasks, loop=self.loop)
-
-    def add_tasks(self, *asyncio_objects: 'AbstractAsyncWorker'):
-        for obj in asyncio_objects:
-            if not obj:
+    def add_jobs(self, *jobs: 'Job'):
+        for job in jobs:
+            if not job:
                 continue
-            assert isinstance(obj, AbstractAsyncWorker)
-            obj.initialize(self.context)
-            t = self.loop.create_task(obj.run())
-            self.worker_tasks.add(t)
+            assert isinstance(job, Job)
+            job.initialize(self.context)
+            t = self.loop.create_task(job.run())
+            self.jobs.add(t)
 
     def stop(self) -> None:
         if self.shutting_down:
@@ -112,6 +106,8 @@ class LoopManager(Thread):
         if self.status != 'Finished':
             self.status = 'Stopping...'
         try:
+            if self.use_session and not self.context.session.closed:
+                self.loop.create_task(self.context.session.close())
             self.cancel_all_tasks(None, None)
             for task in self.scheduled_tasks:
                 task.cancel()
@@ -119,7 +115,7 @@ class LoopManager(Thread):
             pass
         finally:
             self.post_shutdown()
-            for worker in [w for w in self.context.workers if w.running]:
+            for worker in [w for w in self.context.jobs if w.running]:
                 stopped = 'finished' if self.finished else 'manually stopped'
                 worker.logger(stopped)
                 worker.status(stopped)
@@ -132,24 +128,32 @@ class LoopManager(Thread):
         if self.cancelling_all_tasks:
             return
         self.cancelling_all_tasks = True
-        for worker in self.context.workers:
-            worker.queue.put_nowait(False)
-            try:
-                for task in worker.tasks:
-                    task.cancel()
-                    worker.queue.put_nowait(False)
-            except RuntimeError:
-                pass
+        for worker in self.context.jobs:
+            self._cancel_workers(worker)
         try:
             for task in asyncio.all_tasks(loop=self.loop):
                 task.cancel()
         except AttributeError:
             # python 3.6 support
-            for worker in self.context.workers:
+            for worker in self.context.jobs:
                 for task in worker.tasks:
                     task.cancel()
-            for task in self.worker_tasks:
+            for task in self.jobs:
                 task.cancel()
+
+    @staticmethod
+    def _cancel_workers(worker):
+        try:
+            for task in worker.tasks:
+                task.cancel()
+                try:
+                    worker.queue.put_nowait(False)
+                except QueueFull:
+                    for _ in range(worker.queue.qsize()):
+                        worker.queue.get_nowait()
+                    worker.queue.put_nowait(False)
+        except RuntimeError:
+            pass
 
     def post_shutdown(self) -> None:
         self.logger.debug('post_shutdown saving started')
@@ -177,7 +181,7 @@ class LoopManager(Thread):
 
 
 class LoopManagerLoggingHandler(logging.Handler):
-    def __init__(self, manager: LoopManager,
+    def __init__(self, manager: JobManager,
                  level=logging.INFO) -> None:
         super().__init__(level)
         self.manager = manager

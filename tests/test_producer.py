@@ -3,7 +3,7 @@ from random import random
 
 import pytest
 
-from easyasyncio import Producer, LoopManager
+from easyasyncio import Producer, JobManager
 
 
 class ProducerTest(Producer):
@@ -17,7 +17,7 @@ class ProducerTest(Producer):
         for i in range(0, self.input_data):
             await self.queue.put(i)
 
-    async def work(self, number):
+    async def do_work(self, number):
         """
         This logic here will be applied to every item in the queue
         """
@@ -37,8 +37,8 @@ class ProducerTest(Producer):
 
 @pytest.mark.asyncio
 async def test_queue():
-    manager = LoopManager(False)
+    manager = JobManager(False)
     producer = ProducerTest(10)
-    manager.add_tasks(producer)
+    manager.add_jobs(producer)
     await producer.fill_queue()
     assert producer.queue.qsize() == 10

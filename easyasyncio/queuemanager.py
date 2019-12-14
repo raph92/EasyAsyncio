@@ -20,7 +20,7 @@ class QueueManager(UserDict):
             self[key] = Queue()
         return super().__getitem__(key)
 
-    def new(self, name: str) -> 'Queue[Any]':
+    def new(self, name: str, maxsize=0) -> 'Queue[Any]':
         self.logger.debug('Creating new queue: %s...', name)
-        self[name] = Queue()
+        self[name] = Queue(maxsize=maxsize, loop=self.context.loop)
         return self[name]

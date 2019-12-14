@@ -1,7 +1,7 @@
 import asyncio
 import random
 
-from easyasyncio import Producer, LoopManager
+from easyasyncio import Producer, JobManager
 
 
 class PrintNumbersProducer(Producer):
@@ -15,7 +15,7 @@ class PrintNumbersProducer(Producer):
         for i in range(0, self.input_data):
             await self.queue.put(i)
 
-    async def work(self, number):
+    async def do_work(self, number):
         """
         This logic here will be applied to every item in the queue
         """
@@ -34,9 +34,9 @@ class PrintNumbersProducer(Producer):
 
 
 # set autosave to false since we are not saving anything
-manager = LoopManager(False)
+manager = JobManager(False)
 
-manager.add_tasks(PrintNumbersProducer(1000, max_concurrent=15))
+manager.add_jobs(PrintNumbersProducer(1000, max_concurrent=15))
 manager.start()
 
 manager.start_graphics()

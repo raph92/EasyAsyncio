@@ -1,6 +1,6 @@
 import asyncio
 
-from easyasyncio import Producer, LoopManager, Constants
+from easyasyncio import Producer, JobManager, Constants
 
 
 class WithSessionProducer(Producer):
@@ -14,7 +14,7 @@ class WithSessionProducer(Producer):
         for i in range(0, self.input_data):
             await self.queue.put(i)
 
-    async def work(self, number):
+    async def do_work(self, number):
         """implement the business logic here"""
         await asyncio.sleep(1)
         try:
@@ -39,8 +39,8 @@ class WithSessionProducer(Producer):
         return 'parse_request'
 
 
-manager = LoopManager(auto_save=False, use_session=True)
-manager.add_tasks(WithSessionProducer(100, max_concurrent=15))
+manager = JobManager(auto_save=False, use_session=True)
+manager.add_jobs(WithSessionProducer(100, max_concurrent=15))
 
 manager.start()
 
