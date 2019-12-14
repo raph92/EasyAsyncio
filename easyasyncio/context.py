@@ -22,7 +22,7 @@ class Context:
     save_thread: 'AutoSave' = None
     stats_thread: 'StatsDisplay' = None
     loop_manager: 'JobManager'
-    session: ClientSession
+    session: ClientSession = None
 
     data = DataManager()
 

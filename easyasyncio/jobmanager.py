@@ -21,7 +21,7 @@ class JobManager(Thread):
     run_until_complete, etc
     """
     session: ClientSession
-    running = True
+    running = False
     shutting_down = False
     cancelling_all_tasks = False
     post_saving = False
@@ -65,6 +65,7 @@ class JobManager(Thread):
             self.logger.exception(e)
 
     def run(self):
+        self.running = True
         try:
             if self.auto_save:
                 self.scheduled_tasks.add(self.loop.create_task(
@@ -106,7 +107,8 @@ class JobManager(Thread):
         if self.status != 'Finished':
             self.status = 'Stopping...'
         try:
-            if self.use_session and not self.context.session.closed:
+            if (self.use_session and self.context.session and
+                    not self.context.session.closed):
                 self.loop.create_task(self.context.session.close())
             self.cancel_all_tasks(None, None)
             for task in self.scheduled_tasks:
@@ -117,7 +119,7 @@ class JobManager(Thread):
             self.post_shutdown()
             for worker in [w for w in self.context.jobs if w.running]:
                 stopped = 'finished' if self.finished else 'manually stopped'
-                worker.logger(stopped)
+                worker.log.info(stopped)
                 worker.status(stopped)
             if self.succeeded:
                 self.status = 'Finished!'
@@ -177,7 +179,10 @@ class JobManager(Thread):
 
     @property
     def closing(self):
-        return self.finished or self.cancelling_all_tasks or self.shutting_down
+        return (self.finished
+                or self.cancelling_all_tasks
+                or self.shutting_down
+                or not self.running)
 
 
 class LoopManagerLoggingHandler(logging.Handler):
