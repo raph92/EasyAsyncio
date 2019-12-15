@@ -11,12 +11,7 @@ setup(
         description='A library that makes asyncio simple',
         install_requires=[
                 'aiohttp',
-                'easyfilemanager',
                 'asciimatics'
-        ],
-        dependency_links=[
-                'https://github.com/RaphaelNanje/'
-                'easyfilemanager.git#egg=easyfilemanager'
         ],
         python_requires='~=3.6'
 )
