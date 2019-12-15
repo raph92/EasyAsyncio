@@ -12,6 +12,7 @@ from aiohttp import ClientSession
 from . import logger
 from .context import Context
 from .job import Job
+from .settings import HEADERS
 from .tui import on_screen_ready
 
 
@@ -66,6 +67,8 @@ class JobManager(Thread):
 
     def run(self):
         self.running = True
+        if not any(self.jobs):
+            raise Exception('No jobs to start.')
         try:
             if self.auto_save:
                 self.scheduled_tasks.add(self.loop.create_task(
@@ -76,7 +79,8 @@ class JobManager(Thread):
             self.logger.info('Starting %s jobs', len(self.jobs))
             self.context.stats.start_time = time.time()
             if self.use_session:
-                self.context.session = ClientSession(loop=self.loop)
+                self.context.session = ClientSession(loop=self.loop,
+                                                     headers=HEADERS)
             self.loop.run_until_complete(
                     asyncio.gather(*self.jobs, loop=self.loop))
             if not self.cancelling_all_tasks:

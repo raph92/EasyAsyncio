@@ -26,7 +26,7 @@ def _numericize(loaded_data):
 class DataManager(UserDict):
     filemanager = FileManager()
     directory = '.'
-    do_not_display_list = []  # data items not to show
+    do_not_display = []  # data items not to show
     save_kwargs: 'Dict[str, Dict]' = dict()
     load_kwargs: 'Dict[str, Dict]' = dict()
 
@@ -43,7 +43,7 @@ class DataManager(UserDict):
         # whether to display this key's value in get_data_string()
         self.logger.debug('registering "%s" -> "%s"', name, path_to_file)
         if not display:
-            self.do_not_display_list.append(name)
+            self.do_not_display.append(name)
         if save_kwargs:
             self.save_kwargs[name] = save_kwargs
         if load_kwargs:
@@ -86,7 +86,7 @@ class DataManager(UserDict):
         string = ''
         string += f'\n\t\t    <{"TOTALS".center(55, "-")}>\n'
         for k, v in self.items():
-            if k in self.do_not_display_list:
+            if k in self.do_not_display:
                 continue
             # only print the length of iterable values
             if isinstance(v, Sized) and not isinstance(v, str):
