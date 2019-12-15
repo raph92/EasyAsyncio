@@ -15,7 +15,7 @@ setup(
                 'asciimatics'
         ],
         dependency_links=[
-                'git+https://github.com/RaphaelNanje/'
+                'https://github.com/RaphaelNanje/'
                 'easyfilemanager.git#egg=easyfilemanager'
         ],
         python_requires='~=3.6'
