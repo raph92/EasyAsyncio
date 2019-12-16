@@ -149,26 +149,29 @@ class JobManager(Thread):
 
     @staticmethod
     def _cancel_workers(worker):
-        try:
-            for task in worker.tasks:
+        for task in worker.tasks:
+            try:
                 task.cancel()
-                try:
-                    worker.queue.put_nowait(False)
-                except QueueFull:
-                    for _ in range(worker.queue.qsize()):
-                        worker.queue.get_nowait()
-                    worker.queue.put_nowait(False)
-        except RuntimeError:
-            pass
+            except RuntimeError:
+                pass
+        try:
+            worker.queue.put_nowait(False)
+        except QueueFull:
+            for _ in range(worker.queue.qsize()):
+                worker.queue.get_nowait()
+            worker.queue.put_nowait(False)
 
     def post_shutdown(self) -> None:
         self.logger.debug('post_shutdown saving started')
-        try:
-            if self.post_saving:
-                return
-            self.post_saving = True
-            if self.context.save_thread:
+        if self.post_saving:
+            return
+        self.post_saving = True
+        if self.context.save_thread:
+            try:
                 self.save()
+            except Exception as e:
+                self.logger.exception(e)
+        try:
             self.context.stats_thread.display()
         except Exception as e:
             self.logger.exception(e)
@@ -179,7 +182,7 @@ class JobManager(Thread):
             self.logger.debug('post_shutdown saving finished')
 
     def save(self) -> None:
-        self.context.save_thread.save_func()
+        self.context.save_thread.save()
 
     @property
     def closing(self):
