@@ -11,7 +11,7 @@ from aiohttp import ClientSession
 
 from . import logger
 from .context import Context
-from .job import Job
+from .job import Job, WorkerLoggingHandler
 from .settings import HEADERS
 from .tui import on_screen_ready
 
@@ -59,6 +59,7 @@ class JobManager(Thread):
 
         for w in self.context.jobs:
             w.log.propagate = False
+            w.log.addHandler(WorkerLoggingHandler(self))
             w.log.addHandler(file_handler)
         try:
             on_screen_ready(self)

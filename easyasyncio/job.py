@@ -3,7 +3,7 @@ import asyncio
 import logging
 from abc import abstractmethod
 from asyncio import (AbstractEventLoop, Semaphore, Future, Queue,
-                     CancelledError, QueueFull)
+                     QueueFull)
 from collections import deque, Counter
 from time import time
 from typing import Set, Optional, Any
@@ -43,7 +43,6 @@ class Job(abc.ABC):
         self.logs: deque[str] = deque(maxlen=50)
         self.working = 0
         self.log = logging.getLogger(self.name)
-        self.log.addHandler(WorkerLoggingHandler(self))
         self.with_errors = False
         self.running = False
         self._queue_size = max_queue_size
