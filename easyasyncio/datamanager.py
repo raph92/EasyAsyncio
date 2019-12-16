@@ -16,7 +16,7 @@ def _numericize(loaded_data):
         var = i
         try:
             var = int(i)
-        except:
+        except ValueError:
             pass
         finally:
             new_iterable.append(var)
@@ -38,7 +38,8 @@ class DataManager(UserDict):
                  display=True, load=True, save_kwargs: dict = None,
                  load_kwargs: dict = None):
         """
-        Register and load a data file. This file will be accessible to every AsyncWorker through context.data[name]
+        Register and load a data file. This file will be accessible to every
+        AsyncWorker through context.data[name]
         """
         # whether to display this key's value in get_data_string()
         self.logger.debug('registering "%s" -> "%s"', name, path_to_file)
