@@ -39,8 +39,8 @@ class WorkerDetails(widgets.Frame):
         self.final_update = False
         # Create the form for displaying the list of contacts.
         self.manager = manager
-        self.workers = list(self.manager.context.workers)
-        self.worker: 'Optional[Job]' = self.workers[0]
+        self.jobs = list(self.manager.context.jobs)
+        self.worker: 'Optional[Job]' = self.jobs[0]
         self.set_theme('tlj256')
 
         # header
@@ -51,7 +51,7 @@ class WorkerDetails(widgets.Frame):
         self.add_layout(self.main_layout)
 
         # ml-0
-        names = [(w.name, index) for index, w in enumerate(self.workers)]
+        names = [(w.name, index) for index, w in enumerate(self.jobs)]
         names.append(('-' * 10, len(names)))
         names.append(('Totals', len(names)))
 
@@ -101,7 +101,7 @@ class WorkerDetails(widgets.Frame):
         elapsed_time = self.manager.context.stats.elapsed_time
         self.running_label._text = f'Elapsed time: {elapsed_time : .2f}'
         self.workers_label._text = (f'Workers: '
-                                    f'{len(self.manager.context.workers)}')
+                                    f'{len(self.manager.context.jobs)}')
         self.status_label._text = f'Status: {self.manager.status}'
         self.last_save_label._text = f'Last save: {int(last_saved)} secs'
 
@@ -113,13 +113,13 @@ class WorkerDetails(widgets.Frame):
         stat_list.append(('-' * 10, len(stat_list)))
         stat_list.append(('', len(stat_list)))
         for name, stat in self.manager.context.data.items():
-            if name in self.manager.context.data.do_not_display_list:
+            if name in self.manager.context.data.do_not_display:
                 continue
             if isinstance(stat, Iterable) and isinstance(stat, Sized):
                 stat = len(stat)
             stat_list.append((f'{name}: {stat}', len(stat_list)))
         stat_list.append(('-' * 10, len(stat_list)))
-        stat_in_workers = [stat for worker in self.manager.context.workers for
+        stat_in_workers = [stat for worker in self.manager.context.jobs for
                            stat in worker.stats]
         for stat, count in self.manager.context.stats.items():
             if stat in stat_in_workers:
@@ -191,8 +191,8 @@ class WorkerDetails(widgets.Frame):
         return 1
 
     def _on_change(self) -> None:
-        if self.selected.value < len(self.workers):
-            self.worker = self.workers[self.selected.value]
+        if self.selected.value < len(self.jobs):
+            self.worker = self.jobs[self.selected.value]
             self.selected_total = False
             return
 
