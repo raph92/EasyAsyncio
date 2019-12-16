@@ -61,7 +61,7 @@ class DataManager(UserDict):
             self.logger.debug('loaded data for "%s" -> %s', name,
                               (str(loaded_data)[:75] + '...') if len(
                                       str(loaded_data)) > 75 else str(
-                                  loaded_data))
+                                      loaded_data))
         self[name] = initial_data
         if loaded_data:
             self.load(initial_data, loaded_data, name)
@@ -95,16 +95,16 @@ class DataManager(UserDict):
         return string.rstrip()
 
     def save(self):
-        try:
-            for name, value in self.items():
-                # check if this key has a file name
-                if name not in self.filemanager:
-                    continue
-                # if value is empty continue
-                if not value:
-                    continue
-                save_kwargs = self.save_kwargs.get(name, {})
+        for name, value in self.items():
+            # check if this key has a file name
+            if name not in self.filemanager:
+                continue
+            # if value is empty continue
+            if not value:
+                continue
+            save_kwargs = self.save_kwargs.get(name, {})
+            try:
                 self.filemanager.smart_save(name, value,
                                             **save_kwargs)
-        except Exception as e:
-            self.logger.exception(e)
+            except Exception as e:
+                self.logger.exception(e)
