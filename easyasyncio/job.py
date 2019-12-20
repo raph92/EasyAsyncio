@@ -62,6 +62,7 @@ class Job(abc.ABC):
         self.context.jobs.add(self)
         self.sem = Semaphore(self.max_concurrent, loop=self.loop)
         self.context.queues.new(self.name, self._queue_size)
+        self.log.addHandler(JobLogHandler(self))
         self.status('initialized')
 
     async def run(self):
@@ -71,8 +72,9 @@ class Job(abc.ABC):
         try:
             # create workers
             self.create_workers()
-        except Exception as e:
-            self.log.exception(e)
+        except Exception:
+            self.log.error('Failed to create workers.')
+            raise
         else:
             # fill queue
             self.status('filling queue')
@@ -80,7 +82,8 @@ class Job(abc.ABC):
             await self.fill_queue()
             # process
             self.status('working')
-            await asyncio.gather(*self.tasks, loop=self.loop)
+            await asyncio.gather(*self.tasks, loop=self.loop,
+                                 return_exceptions=False)
         finally:
             self.running = False
             # finish
@@ -101,16 +104,18 @@ class Job(abc.ABC):
         """get each item from the queue and pass it to self.work"""
         self.log.debug('worker %s started', num)
         while self.context.running:
-            try:
-                data = await self.queue.get()
-            except (RuntimeError, CancelledError) as e:
-                return e
+            data = await self.queue.get()
             if data is False:
                 self.log.debug('worker %s terminating', num)
                 break
             self.log.debug('worker %s retrieved queued data %s',
                            num, data)
-            result = await self.do_work(data)
+            try:
+                result = await self.do_work(data)
+            except Exception:
+                self.increment_stat(name='exceptions')
+                self.log.exception('')
+                raise
             self.queue.task_done()
             self.results.append(result)
 
@@ -174,7 +179,7 @@ class Job(abc.ABC):
         return self.name
 
 
-class WorkerLoggingHandler(logging.Handler):
+class JobLogHandler(logging.Handler):
     def __init__(self, worker: Job,
                  level=logging.DEBUG) -> None:
         super().__init__(level)

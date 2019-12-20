@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
         name='easyasyncio',
-        version='8.0.6',
+        version='8.0.7',
         packages=['easyasyncio'],
         url='https://github.com/RaphaelNanje/easyasyncio.git',
         license='MIT',
@@ -11,7 +11,8 @@ setup(
         description='A library that makes asyncio simple',
         install_requires=[
                 'aiohttp',
-                'asciimatics'
+                'asciimatics',
+                'diskcache'
         ],
         python_requires='~=3.6'
 )

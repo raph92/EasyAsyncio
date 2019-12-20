@@ -5,6 +5,7 @@ import sys
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 from easyasyncio import JobManager, Producer
+from diskcache import Deque
 
 
 class AutoSaveExample(Producer):
@@ -12,10 +13,11 @@ class AutoSaveExample(Producer):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
+        self.num_cache = Deque([], 'cache/numbers')
 
     async def fill_queue(self):
         for i in range(10000):
-            if i not in self.context.data['numbers']:
+            if i not in self.num_cache:
                 await self.queue.put(i)
         await self.queue_finished()
 
@@ -25,7 +27,7 @@ class AutoSaveExample(Producer):
         sum(list(range(number)))
         self.increment_stat()
         await asyncio.sleep(random.randint(1, 5))
-        self.context.data['numbers'].add(number)
+        self.num_cache.append(number)
         self.context.stats['test_stat'] += 1
         self.log.info('Processed %s', number)
 
@@ -41,8 +43,6 @@ class AutoSaveExample(Producer):
 
 manager = JobManager()
 consumer = AutoSaveExample(max_concurrent=15)
-
-manager.context.data.register('numbers', set(), './numbers/numbers.txt')
 
 manager.add_jobs(consumer)
 manager.start()

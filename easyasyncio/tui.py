@@ -84,7 +84,7 @@ class WorkerDetails(widgets.Frame):
             logs_ = [(msg, index) for index, msg in
                      enumerate(worker_logs)]
             logs_.reverse()
-            self.log_list._options = logs_[:50]
+            self.log_list._options = logs_
             # stats
             self._update_stats()
         elif self.selected_total:

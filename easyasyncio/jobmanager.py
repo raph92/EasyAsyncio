@@ -11,7 +11,7 @@ from aiohttp import ClientSession
 
 from . import logger
 from .context import Context
-from .job import Job, WorkerLoggingHandler
+from .job import Job, JobLogHandler
 from .settings import HEADERS
 from .tui import on_screen_ready
 
@@ -59,7 +59,7 @@ class JobManager(Thread):
 
         for w in self.context.jobs:
             w.log.propagate = False
-            w.log.addHandler(WorkerLoggingHandler(self))
+            w.log.addHandler(JobLogHandler(self))
             w.log.addHandler(file_handler)
         try:
             on_screen_ready(self)
@@ -94,6 +94,7 @@ class JobManager(Thread):
         finally:
             self.context.stats._end_time = time.time()
             self.stop()
+            self.logger.info('Exiting.')
 
     def add_jobs(self, *jobs: 'Job'):
         for job in jobs:
@@ -104,7 +105,7 @@ class JobManager(Thread):
             t = self.loop.create_task(job.run())
             self.jobs.add(t)
 
-    def stop(self) -> None:
+    def stop(self, reason='') -> None:
         if self.shutting_down:
             return
         self.shutting_down = True
@@ -119,7 +120,7 @@ class JobManager(Thread):
             for task in self.scheduled_tasks:
                 task.cancel()
         except RuntimeError:
-            pass
+            self.logger.exception('Error while shutting down')
         finally:
             self.post_shutdown()
             for worker in [w for w in self.context.jobs if w.running]:
@@ -129,7 +130,8 @@ class JobManager(Thread):
             if self.succeeded:
                 self.status = 'Finished!'
                 self.logger.info('Success! All tasks have completed!')
-            self.logger.info('Exiting.')
+            if reason:
+                print('Stop reason:', reason)
 
     def cancel_all_tasks(self, _, _2) -> None:
         if self.cancelling_all_tasks:
@@ -142,25 +144,22 @@ class JobManager(Thread):
                 task.cancel()
         except AttributeError:
             # python 3.6 support
-            for worker in self.context.jobs:
-                for task in worker.tasks:
-                    task.cancel()
             for task in self.jobs:
                 task.cancel()
 
-    @staticmethod
-    def _cancel_workers(worker):
-        for task in worker.tasks:
+    def _cancel_workers(self, job):
+        for task in job.tasks:
             try:
                 task.cancel()
             except RuntimeError:
-                pass
+                self.logger.exception(
+                        'Error while cancelling worker in job {}', job.name)
         try:
-            worker.queue.put_nowait(False)
+            job.queue.put_nowait(False)
         except QueueFull:
-            for _ in range(worker.queue.qsize()):
-                worker.queue.get_nowait()
-            worker.queue.put_nowait(False)
+            for _ in range(job.queue.qsize()):
+                job.queue.get_nowait()
+            job.queue.put_nowait(False)
 
     def post_shutdown(self) -> None:
         self.logger.debug('post_shutdown saving started')
@@ -172,14 +171,9 @@ class JobManager(Thread):
                 self.save()
             except Exception as e:
                 self.logger.exception(e)
-        try:
-            self.context.stats_thread.display()
-        except Exception as e:
-            self.logger.exception(e)
-        finally:
-            if self.status == 'Stopping...':
-                self.status = 'Shutdown'
-
+        self.context.stats_thread.display()
+        if self.status == 'Stopping...':
+            self.status = 'Shutdown'
             self.logger.debug('post_shutdown saving finished')
 
     def save(self) -> None:

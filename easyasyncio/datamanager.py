@@ -16,7 +16,7 @@ def _numericize(loaded_data):
         var = i
         try:
             var = int(i)
-        except ValueError:
+        except (ValueError, TypeError):
             pass
         finally:
             new_iterable.append(var)
