@@ -53,15 +53,10 @@ class Stats(typing.Counter[int]):
         return string.rstrip()
 
     def get_worker_stats(self, worker, string):
-        from .consumer import Consumer
         worker_stats_str = f'<{f"JOB {worker.name}".center(29, "-")}>\n'
         string += f'{spacer3}' + worker_stats_str
-        if isinstance(worker, Consumer):
-            string += (f'{spacer4}queue: '
-                       f'{worker.working + worker.queue.qsize()} items left\n')
-        else:
-            string += (f'{spacer4}queue: '
-                       f'{worker.queue.qsize()} items left\n')
+        string += (f'{spacer4}queue: '
+                   f'{worker.queue.qsize()} items left\n')
         for key, value in worker.info.items():
             string += f'{spacer4}{key}: {value}\n'
         for key, value in worker.stats.items():
