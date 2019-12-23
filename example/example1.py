@@ -19,8 +19,7 @@ class PrintNumbersProducer(Producer):
         """
         # sleep_time = random.randint(1, 3)
         # await asyncio.sleep(sleep_time)
-        self.log.info(number)
-        self.increment_stat()
+        return number
 
     @property
     def name(self):
