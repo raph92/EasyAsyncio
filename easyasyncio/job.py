@@ -23,9 +23,15 @@ class Job(abc.ABC):
     def __init__(self, input_data=None,
                  max_concurrent=20,
                  max_queue_size=0,
-                 predecessor: 'Optional[Job]' = None) -> None:
+                 predecessor: 'Optional[Job]' = None,
+                 successor: 'Optional[Job]' = None,
+                 output: str = '',
+                 caching=True,
+                 cache_name='',
+                 continuous=False) -> None:
         self.input_data = input_data
         self.max_concurrent = max_concurrent
+        self.output = output
         self.stats = Counter()
         self.tasks = set()
         self.info = dict()
@@ -35,10 +41,13 @@ class Job(abc.ABC):
         self.info['max_workers'] = max_concurrent
         self._done = False
         self.predecessor = predecessor
-        self.successor: 'Optional[Job]' = None
+        self.successor = successor
         if predecessor:
             predecessor.add_successor(self)
             self.info['supersedes'] = predecessor.name
+        if successor:
+            successor.add_predecessor(self)
+            self.info['precedes'] = successor.name
         self._status = ''
         self.logs: deque[str] = deque(maxlen=50)
         self.working = 0
@@ -46,10 +55,18 @@ class Job(abc.ABC):
         self.with_errors = False
         self.running = False
         self._queue_size = max_queue_size
+        self.caching = caching
+        if caching:
+            self.cache_name = cache_name or self.name
+        self.continuous = continuous
 
     @property
     def queue(self) -> Queue:
         return self.context.queues.get(self.name)
+
+    @property
+    def cache(self) -> CacheSet:
+        return self.context.data.get(self.cache_name)
 
     @property
     @abstractmethod
@@ -64,6 +81,8 @@ class Job(abc.ABC):
         self.context.queues.new(self.name, self._queue_size)
         self.log.addHandler(JobLogHandler(self))
         self.status('initialized')
+        if self.caching:
+            context.data.register_cache(self.cache_name, set(), display=False)
 
     async def run(self):
         """setup workers and start"""
@@ -88,7 +107,7 @@ class Job(abc.ABC):
         finally:
             self.running = False
             # finish
-            await self._on_finish()
+            await self.on_finish()
 
     @abstractmethod
     async def fill_queue(self):
@@ -106,10 +125,13 @@ class Job(abc.ABC):
         self.log.debug('worker %s started', num)
         while self.context.running:
             data = await self.queue.get()
+            if self.caching and data in self.cache and data is not False:
+                self.increment_stat(name='skipped')
+                continue
             if data is False:
                 self.log.debug('worker %s terminating', num)
                 break
-            self.log.debug('worker %s retrieved queued data %s',
+            self.log.debug('[worker%s] retrieved queued data "%s"',
                            num, data)
             try:
                 result = await self.do_work(data)
@@ -121,16 +143,24 @@ class Job(abc.ABC):
                 self.log.exception('')
                 raise
             self.queue.task_done()
-            self.results.append(result)
+            await self.post_process(*result)
+            if self.caching and data is not False:
+                self.get_data(self.cache_name).add(data)
+            if isinstance(result, (list, set, dict)):
+                self.increment_stat(len(result))
+            else: self.increment_stat()
 
     @abstractmethod
     async def do_work(self, *args):
         """do business logic on each enqueued item"""
 
-    async def _on_finish(self):
+    async def post_process(self, obj):
+        self.log.info('new result: %s', obj)
+
+    async def on_finish(self):
         self.end_time = time()
         self.status('finished')
-        self.log.debug('finished: %s', self.results)
+        self.log.debug('finished!')
         if self.with_errors:
             self.log.warning('Some errors occurred. See logs')
 
@@ -163,6 +193,16 @@ class Job(abc.ABC):
         self.successor.predecessor = self
         self.info['precedes'] = successor.name
 
+    def add_predecessor(self, predecessor: 'Job'):
+        """
+        The next async worker that will work on the data that
+        this async worker gathers
+        """
+        assert predecessor != self
+        self.predecessor = predecessor
+        self.predecessor.successor = self
+        self.info['supersedes'] = predecessor.name
+
     async def queue_predecessor(self, data):
         await self.predecessor.queue.put(data)
 
@@ -174,7 +214,10 @@ class Job(abc.ABC):
     def time_left(self):
         elapsed_time = self.context.stats.elapsed_time
         per_second = self.context.stats[self.name] / elapsed_time
-        return round((self.queue.qsize() + self.working) / per_second)
+        return round((self.queue.qsize()) / per_second)
+
+    def get_data(self, name):
+        return self.context.data.get(name)
 
     def __repr__(self):
         return self.name
