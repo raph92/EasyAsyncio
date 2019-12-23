@@ -8,7 +8,7 @@ if not os.path.exists(os.path.split(_path)[0]):
     os.makedirs(os.path.split(_path)[0])
 
 logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(name)-12s '
+                    format='%(asctime)s %(name)s:%(lineno)d '
                            '%(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M:%S',
                     filename=_path,
