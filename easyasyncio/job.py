@@ -33,6 +33,26 @@ class Job(abc.ABC):
                  caching=True,
                  cache_name='',
                  continuous=False) -> None:
+        """
+
+        Args:
+            input_data (Any): Starting data to work on that is usually loaded
+                from a file
+            max_concurrent (int): The maximum number of workers
+            max_queue_size (int): The maximum items the queue can hold at once
+            predecessor (Job, Optional): The queue that passes completed data
+                to this Job
+            successor (Job): The Job that will receive this Job's completed
+                data
+            output (str): The name of the key to the output file
+            caching (bool): Whether or not this Job should cache automatically
+            cache_name (str): The name of the cache to save completed data to
+            continuous (bool): Whether the predecessor of this Job should end
+                this Job when its queue is empty
+
+        See Also: :class:`OutputJob` :class:`ForwardQueuingJob`
+            :class:`BackwardQueuingJob`
+        """
         self.input_data = input_data
         self.max_concurrent = max_concurrent
         self.output = output
@@ -228,6 +248,11 @@ class Job(abc.ABC):
 
 
 class ForwardQueuingJob(Job, abc.ABC):
+    """
+    This :class:`Job` will pass all items completed to its successor for
+    further processing
+    """
+
     def __init__(self, successor: Job, **kwargs) -> None:
         super().__init__(successor=successor, **kwargs)
 
@@ -242,6 +267,11 @@ class ForwardQueuingJob(Job, abc.ABC):
 
 
 class BackwardQueuingJob(Job, abc.ABC):
+    """
+    This :class:`Job` will pass all items completed to its predecessor for
+    further processing
+    """
+
     def __init__(self, predecessor: Job, **kwargs) -> None:
         super().__init__(predecessor=predecessor, **kwargs)
 
@@ -251,6 +281,7 @@ class BackwardQueuingJob(Job, abc.ABC):
 
 
 class OutputJob(Job, abc.ABC):
+    """This :class:`Job` will pass all completed items to an output file"""
     def __init__(self, output: str, **kwargs) -> None:
         super().__init__(output=output, **kwargs)
 
@@ -267,6 +298,8 @@ class OutputJob(Job, abc.ABC):
 
 
 class JobLogHandler(logging.Handler):
+    """This will handle all messages passed via :class:`Job.log`"""
+
     def __init__(self, worker: Job,
                  level=logging.DEBUG) -> None:
         super().__init__(level)
