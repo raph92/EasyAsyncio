@@ -13,6 +13,7 @@ class WithSessionProducer(Producer):
         """override this abstract method to fill the queue"""
         for i in range(0, self.input_data):
             await self.queue.put(i)
+        await self.queue_finished()
 
     async def do_work(self, number):
         """implement the business logic here"""
@@ -23,7 +24,7 @@ class WithSessionProducer(Producer):
                     headers=Constants.HEADERS
             ) as response:
                 text = await response.read()
-                self.logger("%s %s", number, str(text))
+                self.log.ino("%s %s", number, str(text))
             self.increment_stat()
         except Exception as e:
             self.log.exception(e)
@@ -43,5 +44,4 @@ manager = JobManager(auto_save=False, use_session=True)
 manager.add_jobs(WithSessionProducer(100, max_concurrent=15))
 
 manager.start()
-
 manager.start_graphics()

@@ -6,13 +6,17 @@ from easyasyncio import Producer, JobManager, Consumer
 class ConsumerNumberExample(Consumer):
     """print numbers asynchronously"""
 
+    async def fill_queue(self):
+        pass
+
     def __init__(self) -> None:
         super().__init__()
 
     async def do_work(self, number):
-        """this logic gets called after an object is retrieved from the queue"""
+        """this logic gets called after an object
+         is retrieved from the queue"""
         await asyncio.sleep(1)
-        self.logger(number)
+        self.log.info(number)
         self.increment_stat()
 
     @property
@@ -56,4 +60,4 @@ manager.add_jobs(consumer, producer)
 
 manager.start()
 
-manager.start_graphics()
+# manager.start_graphics()

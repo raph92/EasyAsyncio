@@ -64,11 +64,11 @@ class QueueJob(Job):
 
 manager = JobManager()
 
-producer = QueueJob(100, max_concurrent=5)
-consumer = PrintJob(max_concurrent=5,
+producer = QueueJob(100, max_concurrent=15)
+consumer = PrintJob(max_concurrent=15,
                     predecessor=producer,
                     max_queue_size=5)
 manager.add_jobs(producer, consumer)
 manager.start()
 
-# manager.start_graphics()
+manager.start_graphics()

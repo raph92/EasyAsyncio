@@ -3,7 +3,7 @@ import asyncio
 import logging
 from abc import abstractmethod
 from asyncio import (AbstractEventLoop, Semaphore, Future, Queue,
-                     QueueFull)
+                     QueueFull, CancelledError)
 from collections import deque, Counter
 from time import time
 from typing import Set, Optional, Any
@@ -78,8 +78,9 @@ class Job(abc.ABC):
         else:
             # fill queue
             self.status('filling queue')
-            self.log.debug('creating queue...')
-            await self.fill_queue()
+            self.log.debug('creating queue task...')
+            queue_task = self.loop.create_task(self.fill_queue())
+            self.tasks.add(queue_task)
             # process
             self.status('working')
             await asyncio.gather(*self.tasks, loop=self.loop,
@@ -112,6 +113,9 @@ class Job(abc.ABC):
                            num, data)
             try:
                 result = await self.do_work(data)
+            except CancelledError:
+                self.log.debug('work on %s cancelled', data)
+                break
             except Exception:
                 self.increment_stat(name='exceptions')
                 self.log.exception('')
@@ -131,7 +135,7 @@ class Job(abc.ABC):
             self.log.warning('Some errors occurred. See logs')
 
     async def queue_finished(self):
-        """called when all tasks are finished with queue"""
+        """Tells this Job to stop watching the queue and shutdown"""
         self.log.debug('finished queueing')
         for _ in self.tasks:
             try:

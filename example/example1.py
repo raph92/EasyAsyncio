@@ -1,6 +1,3 @@
-import asyncio
-import random
-
 from easyasyncio import Producer, JobManager
 
 
@@ -14,14 +11,15 @@ class PrintNumbersProducer(Producer):
         """override this abstract method to fill the queue"""
         for i in range(0, self.input_data):
             await self.queue.put(i)
+        await self.queue_finished()
 
     async def do_work(self, number):
         """
         This logic here will be applied to every item in the queue
         """
-        sleep_time = random.randint(1, 3)
-        await asyncio.sleep(sleep_time)
-        self.logger(number)
+        # sleep_time = random.randint(1, 3)
+        # await asyncio.sleep(sleep_time)
+        self.log.info(number)
         self.increment_stat()
 
     @property
@@ -39,4 +37,4 @@ manager = JobManager(False)
 manager.add_jobs(PrintNumbersProducer(1000, max_concurrent=15))
 manager.start()
 
-manager.start_graphics()
+# manager.start_graphics()
