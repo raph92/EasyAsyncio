@@ -134,3 +134,5 @@ dmypy.json
 testfiles/
 /venv-dev/
 /mypyerrors
+cache.db*
+output*
