@@ -6,8 +6,11 @@ from asyncio import (AbstractEventLoop, Semaphore, Future, Queue,
                      QueueFull, CancelledError)
 from collections import deque, Counter
 from time import time
-from typing import Set, Optional, Any
+from typing import Set, Optional, Any, MutableMapping
 
+from diskcache import Deque, Index
+
+from .cachetypes import CacheSet
 from .context import Context
 
 
@@ -20,7 +23,8 @@ class Job(abc.ABC):
     end_time: float
     input_data: Any
 
-    def __init__(self, input_data=None,
+    def __init__(self,
+                 input_data=None,
                  max_concurrent=20,
                  max_queue_size=0,
                  predecessor: 'Optional[Job]' = None,
@@ -35,11 +39,9 @@ class Job(abc.ABC):
         self.stats = Counter()
         self.tasks = set()
         self.info = dict()
-        self.results = []
         self.info['max_queue_size'] = ('infinite' if max_queue_size == 0
                                        else max_queue_size)
         self.info['max_workers'] = max_concurrent
-        self._done = False
         self.predecessor = predecessor
         self.successor = successor
         if predecessor:
@@ -50,7 +52,6 @@ class Job(abc.ABC):
             self.info['precedes'] = successor.name
         self._status = ''
         self.logs: deque[str] = deque(maxlen=50)
-        self.working = 0
         self.log = logging.getLogger(self.name)
         self.with_errors = False
         self.running = False
@@ -224,6 +225,45 @@ class Job(abc.ABC):
 
     def __str__(self):
         return self.name
+
+
+class ForwardQueuingJob(Job, abc.ABC):
+    def __init__(self, successor: Job, **kwargs) -> None:
+        super().__init__(successor=successor, **kwargs)
+
+    async def post_process(self, *obj):
+        for o in obj:
+            await self.queue_successor(o)
+
+    async def on_finish(self):
+        await super().on_finish()
+        if not self.continuous:
+            await self.successor.queue_finished()
+
+
+class BackwardQueuingJob(Job, abc.ABC):
+    def __init__(self, predecessor: Job, **kwargs) -> None:
+        super().__init__(predecessor=predecessor, **kwargs)
+
+    async def post_process(self, *obj):
+        for o in obj:
+            await self.queue_predecessor(o)
+
+
+class OutputJob(Job, abc.ABC):
+    def __init__(self, output: str, **kwargs) -> None:
+        super().__init__(output=output, **kwargs)
+
+    async def post_process(self, *obj):
+        for o in obj:
+            cache = self.get_data(self.output)
+            if isinstance(cache, (CacheSet, set)):
+                cache.add(o)
+            elif isinstance(cache, (Deque, list)):
+                cache.append(o)
+            elif isinstance(cache, (Index, MutableMapping)):
+                key, value = o
+                cache[key] = o
 
 
 class JobLogHandler(logging.Handler):
