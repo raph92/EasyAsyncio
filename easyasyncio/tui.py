@@ -100,7 +100,7 @@ class WorkerDetails(widgets.Frame):
         last_saved = self.manager.context.save_thread.last_saved
         elapsed_time = self.manager.context.stats.elapsed_time
         self.running_label._text = f'Elapsed time: {elapsed_time : .2f}'
-        self.workers_label._text = (f'Workers: '
+        self.workers_label._text = (f'Jobs: '
                                     f'{len(self.manager.context.jobs)}')
         self.status_label._text = f'Status: {self.manager.status}'
         self.last_save_label._text = f'Last save: {int(last_saved)} secs'
@@ -141,7 +141,7 @@ class WorkerDetails(widgets.Frame):
             stat_list.append(('-' * 24, len(stat_list)))
             stat_list.append(('', len(stat_list)))
 
-        worker_queue_qsize = self.worker.working + self.worker.queue.qsize()
+        worker_queue_qsize = self.worker.queue.qsize()
         finished_else_ = worker_queue_qsize if not self.manager.finished else 0
         queue_string = f'queue size: {finished_else_}'
         stat_list.append((
