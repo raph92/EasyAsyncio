@@ -72,3 +72,7 @@ class CacheSet(Iterable):
 
     def __repr__(self):
         return str(self)
+
+    @property
+    def directory(self):
+        return self.index.directory
