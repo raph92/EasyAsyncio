@@ -12,7 +12,10 @@ setup(
         install_requires=[
                 'aiohttp==3.6.2',
                 'asciimatics',
-                'diskcache'
+                'diskcache',
+                'easyfilemanager @ https://github.com'
+                '/RaphaelNanje/easyfilemanager/releases/tag/v3.0.1'
+
         ],
         python_requires='~=3.6'
 )
