@@ -164,13 +164,13 @@ class Job(abc.ABC):
                 self.log.exception('')
                 raise
             self.queue.task_done()
-            if result is not None:
+            if result is not None and result is not False:
                 await self.post_process(result)
-            if self.caching and data is not False:
-                self.get_data(self.cache_name).add(data)
-            if isinstance(result, (list, set, dict)):
-                self.increment_stat(len(result))
-            else: self.increment_stat()
+                if self.caching and data is not False:
+                    self.get_data(self.cache_name).add(data)
+                if isinstance(result, (list, set, dict)):
+                    self.increment_stat(len(result))
+                else: self.increment_stat()
 
     @abstractmethod
     async def do_work(self, *args):
