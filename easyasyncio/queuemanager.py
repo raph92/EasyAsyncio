@@ -17,7 +17,7 @@ class QueueManager(UserDict):
 
     def __getitem__(self, key: str) -> 'Queue[Any]':
         if key not in self:
-            self[key] = Queue()
+            self[key] = Queue(loop=self.context.loop)
         return super().__getitem__(key)
 
     def new(self, name: str, maxsize=0) -> 'Queue[Any]':
