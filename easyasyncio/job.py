@@ -145,35 +145,40 @@ class Job(abc.ABC):
         """get each item from the queue and pass it to self.work"""
         self.log.debug('worker %s started', num)
         while self.context.running:
-            data = await self.queue.get()
-            if self.caching and data in self.cache and data is not False:
+            queued_data = await self.queue.get()
+            if self.caching and queued_data in self.cache and queued_data is not False:
                 self.increment_stat(name='skipped')
                 continue
-            if data is False:
+            if queued_data is False:
                 self.log.debug('worker %s terminating', num)
                 break
             self.log.debug('[worker%s] retrieved queued data "%s"',
-                           num, data)
+                           num, queued_data)
             try:
-                result = await self.do_work(data)
+                result = await self.do_work(queued_data)
             except CancelledError:
-                self.log.debug('work on %s cancelled', data)
+                self.log.debug('work on %s cancelled', queued_data)
                 break
             except Exception:
                 self.increment_stat(name='exceptions')
                 self.log.exception('')
                 raise
             self.queue.task_done()
-            if result is not None and result is not False:
+            do_not_cont = queued_data is False or isinstance(result,
+                                                             type(None))
+            if do_not_cont:
+                return
+            if self.caching:
+                self.cache.add(queued_data)
+            if result is not False:
                 await self.post_process(result)
-                if self.caching and data is not False:
-                    self.get_data(self.cache_name).add(data)
                 if isinstance(result, (list, set, dict)):
-                    self.increment_stat(len(result))
-                else: self.increment_stat()
+                    self.increment_stat(len(result), 'successes')
+                else: self.increment_stat(name='successes')
+            self.increment_stat()
 
     @abstractmethod
-    async def do_work(self, *args):
+    async def do_work(self, *args) -> object:
         """do business logic on each enqueued item"""
 
     async def post_process(self, obj):
