@@ -24,7 +24,7 @@ class ConsumerNumberExample(Consumer):
         """
         Name the object or service being provided.
         This will effect how the StatsDisplay displays information about
-        this Prosumer.
+        this Job.
         """
         return 'consume_number'
 

@@ -216,7 +216,7 @@ class Job(abc.ABC):
                     await self.queue.get()
 
     def increment_stat(self, n=1, name: str = None) -> None:
-        """increment the count of whatever this prosumer is processing"""
+        """increment the count of whatever this Job is processing"""
         if not name:
             name = 'processed'
         self.stats[name] += n
