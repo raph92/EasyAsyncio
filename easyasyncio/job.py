@@ -6,7 +6,7 @@ from asyncio import (AbstractEventLoop, Semaphore, Future, Queue,
                      QueueFull, CancelledError)
 from collections import deque, Counter
 from time import time
-from typing import Set, Optional, Any, MutableMapping
+from typing import Set, Optional, Any, MutableMapping, Iterable
 
 from diskcache import Deque, Index
 
@@ -164,7 +164,8 @@ class Job(abc.ABC):
                 self.log.exception('')
                 raise
             self.queue.task_done()
-            await self.post_process(*result)
+            if result is not None:
+                await self.post_process(result)
             if self.caching and data is not False:
                 self.get_data(self.cache_name).add(data)
             if isinstance(result, (list, set, dict)):
@@ -176,9 +177,23 @@ class Job(abc.ABC):
         """do business logic on each enqueued item"""
 
     async def post_process(self, obj):
-        self.log.info('new result: %s', obj)
+        if (isinstance(obj,
+                       (list, set, dict, Iterable)) and not isinstance(
+                obj, str)):
+            for o in obj:
+                await self.on_item_completed(o)
+        elif isinstance(obj, MutableMapping):
+            for t in obj.items():
+                await self.on_item_completed(t)
+        else:
+            await self.on_item_completed(obj)
+
+    async def on_item_completed(self, obj):
+        """Called after post-processing is finished"""
+        self.log.info('obj')
 
     async def on_finish(self):
+        """Called when all tasks are finished"""
         self.end_time = time()
         self.status('finished')
         self.log.debug('finished!')
@@ -186,7 +201,7 @@ class Job(abc.ABC):
             self.log.warning('Some errors occurred. See logs')
 
     async def queue_finished(self):
-        """Tells this Job to stop watching the queue and shutdown"""
+        """Tells this Job to stop watching the queue and close"""
         self.log.debug('finished queueing')
         for _ in self.tasks:
             try:
@@ -256,9 +271,8 @@ class ForwardQueuingJob(Job, abc.ABC):
     def __init__(self, successor: Job, **kwargs) -> None:
         super().__init__(successor=successor, **kwargs)
 
-    async def post_process(self, *obj):
-        for o in obj:
-            await self.queue_successor(o)
+    async def on_item_completed(self, obj):
+        await self.queue_successor(obj)
 
     async def on_finish(self):
         await super().on_finish()
@@ -275,26 +289,25 @@ class BackwardQueuingJob(Job, abc.ABC):
     def __init__(self, predecessor: Job, **kwargs) -> None:
         super().__init__(predecessor=predecessor, **kwargs)
 
-    async def post_process(self, *obj):
-        for o in obj:
-            await self.queue_predecessor(o)
+    async def on_item_completed(self, obj):
+        await self.queue_predecessor(obj)
 
 
 class OutputJob(Job, abc.ABC):
     """This :class:`Job` will pass all completed items to an output file"""
+
     def __init__(self, output: str, **kwargs) -> None:
         super().__init__(output=output, **kwargs)
 
-    async def post_process(self, *obj):
-        for o in obj:
-            cache = self.get_data(self.output)
-            if isinstance(cache, (CacheSet, set)):
-                cache.add(o)
-            elif isinstance(cache, (Deque, list)):
-                cache.append(o)
-            elif isinstance(cache, (Index, MutableMapping)):
-                key, value = o
-                cache[key] = o
+    async def on_item_completed(self, o):
+        cache = self.get_data(self.output)
+        if isinstance(cache, (CacheSet, set)):
+            cache.add(o)
+        elif isinstance(cache, (Deque, list)):
+            cache.append(o)
+        elif isinstance(cache, (Index, MutableMapping)):
+            key, value = o
+            cache[key] = value
 
 
 class JobLogHandler(logging.Handler):
