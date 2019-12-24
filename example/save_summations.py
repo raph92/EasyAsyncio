@@ -44,7 +44,6 @@ class AutoSaveExample(OutputJob):
 
 manager = JobManager()
 manager.context.data.register_cache('output', set(), 'output/output.txt')
-getsizeof = sys.getsizeof(manager.context.data['output'])
 job = AutoSaveExample('output', input_data=10000, max_concurrent=15)
 
 manager.add_jobs(job)
