@@ -185,5 +185,5 @@ class DataManager(UserDict):
                 continue
             if isinstance(value, (CacheSet, Deque, Index)):
                 value.clear()
-            import shutil
-            shutil.rmtree(value.directory)
+                import shutil
+                shutil.rmtree(value.directory)
