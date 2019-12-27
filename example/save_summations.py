@@ -16,7 +16,8 @@ class AutoSaveExample(OutputJob):
 
     async def fill_queue(self):
         self.log.info('starting to queue')
-        for i in set(range(1, self.input_data + 1)).difference(self.cache):
+        for i in set(range(1, self.input_data + 1)).difference(
+                self.cache_name):
             # if i not in set(self.num_cache):
             self.log.info('queuing %s', i)
             await self.queue.put(i)
