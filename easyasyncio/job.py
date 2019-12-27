@@ -6,8 +6,9 @@ from asyncio import (AbstractEventLoop, Semaphore, Future, Queue,
                      QueueFull, CancelledError)
 from collections import deque, Counter
 from time import time
-from typing import Set, Optional, Any, MutableMapping, Iterable
+from typing import (Set, Optional, Any, MutableMapping, Union)
 
+from aiohttp import ServerDisconnectedError
 from diskcache import Deque, Index
 
 from .cachetypes import CacheSet
@@ -159,7 +160,10 @@ class Job(abc.ABC):
             except CancelledError:
                 self.log.debug('work on %s cancelled', queued_data)
                 break
-            except Exception:
+            except ServerDisconnectedError:
+                self.log.error('server disconnected')
+                await self.queue.put(queued_data)
+            except Exception as e:
                 self.increment_stat(name='exceptions')
                 self.log.exception('')
                 raise
