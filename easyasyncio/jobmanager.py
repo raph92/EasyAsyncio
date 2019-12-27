@@ -34,6 +34,7 @@ class JobManager(Thread):
     status = 'Starting...'
     logs = collections.deque(maxlen=50)
     succeeded = False
+    name = 'JobManager'
 
     def __init__(self, auto_save=True, use_session=False):
         super().__init__()
