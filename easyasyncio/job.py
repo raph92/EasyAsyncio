@@ -102,6 +102,12 @@ class Job(abc.ABC):
         pass
 
     def initialize(self, context: Context):
+        """
+        Set all of the context-dependent variables
+
+        This is called during manager.add_job(...) and needs to be called
+        before this class can access any property from **self.context**
+        """
         self.context = context
         self.loop = context.loop
         self.context.jobs.add(self)
