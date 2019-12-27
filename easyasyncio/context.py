@@ -21,14 +21,13 @@ class Context:
     jobs: 'Set[Job]' = set()
     save_thread: 'AutoSave' = None
     stats_thread: 'StatsDisplay' = None
-    loop_manager: 'JobManager'
     session: ClientSession = None
 
     data = DataManager()
 
-    def __init__(self, loop_manager) -> None:
+    def __init__(self, job_manager: 'JobManager') -> None:
         self.stats = Stats(self)
-        self.loop_manager = loop_manager
+        self.manager = job_manager
         self.queues = QueueManager(self)
         self.save_thread = AutoSave(self)
         self.stats_thread = StatsDisplay(self)
@@ -40,3 +39,7 @@ class Context:
     @property
     def loop(self):
         return self.loop_manager.loop
+
+    @property
+    def loop_manager(self):
+        return self.manager
