@@ -46,11 +46,17 @@ class Job(abc.ABC):
             successor (Job): The Job that will receive this Job's completed
                 data
             output (str): The name of the key to the output file
-            caching (bool): Whether or not this Job should cache automatically
-            cache_name (str): The name of the cache to save completed data to
+            cache_finished_items (bool): Whether or not this Job should cache
+                finished items automatically. This will prevent the program
+                from working on the same items multiple times
+            cache_name (str): The name of the cache to save completed data to.
+                This will default to **self.name**
             continuous (bool): Whether the predecessor of this Job should end
                 this Job when its queue is empty
-
+            cache_queued_items (bool): Whether all items added to the queue
+                should also be cached for resuming when the Job is restarted
+            queue_cache_name (str): The name to save the queue_cache as
+            product_name (str): The item that this job produces
         See Also: :class:`OutputJob` :class:`ForwardQueuingJob`
             :class:`BackwardQueuingJob`
         """
