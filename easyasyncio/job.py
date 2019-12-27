@@ -37,7 +37,8 @@ class Job(abc.ABC):
                  cache_queued_items=False,
                  auto_add_results=True,
                  queue_cache_name='',
-                 product_name='') -> None:
+                 product_name='',
+                 log_level=logging.INFO) -> None:
         """
 
         Args:
@@ -65,6 +66,7 @@ class Job(abc.ABC):
         See Also: :class:`OutputJob` :class:`ForwardQueuingJob`
             :class:`BackwardQueuingJob`
         """
+        self.log_level = log_level
         self.auto_add_results = auto_add_results
         self.input_data = input_data
         self.max_concurrent = max_concurrent
@@ -135,7 +137,7 @@ class Job(abc.ABC):
         self.context.jobs.add(self)
         self.sem = Semaphore(self.max_concurrent, loop=self.loop)
         self.context.queues.new(self.name, self._queue_size)
-        self.log.addHandler(JobLogHandler(self))
+        self.log.addHandler(JobLogHandler(self, level=self.log_level))
         self.status('initialized')
         if self.cache_finished_items:
             context.data.register_cache(self.cache_name, set(), display=False)
