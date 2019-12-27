@@ -226,22 +226,24 @@ class Job(abc.ABC):
         self.log.debug('[worker%s] terminated', num)
 
     async def _on_work_processed(self, input_data, result):
-        if result is None: return
-        if self.cache_queued_items:
-            try:
-                self.queue_cache.remove(input_data)
-            except KeyError:
-                pass
-        if self.cache_finished_items:
-            self.completed_cache.add(input_data)
-        if result is not False:
-            # only use post-processing if the result is not a boolean
-            if result is not True and self.auto_add_results:
-                await self._post_process(result)
-            if isinstance(result, (list, set, dict)):
-                self.increment_stat(len(result), self.result_name)
-            else: self.increment_stat(name=self.result_name)
-        self.increment_stat()
+        try:
+            if result is None: return
+            if self.cache_queued_items:
+                try:
+                    self.queue_cache.remove(input_data)
+                except KeyError:
+                    pass
+            if self.cache_finished_items:
+                self.completed_cache.add(input_data)
+            if result is not False:
+                # only use post-processing if the result is not a boolean
+                if result is not True and self.auto_add_results:
+                    await self._post_process(result)
+                if isinstance(result, (list, set, dict)):
+                    self.increment_stat(len(result), self.result_name)
+                else: self.increment_stat(name=self.result_name)
+        finally:
+            self.increment_stat(name='attempted')
 
     @abstractmethod
     async def do_work(self, input_data) -> object:
