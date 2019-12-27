@@ -139,7 +139,7 @@ class WorkerDetails(widgets.Frame):
             stat_list.append((f'per second: {per_second : .2f}',
                               len(stat_list)))
             stat_list.append(('-' * 24, len(stat_list)))
-            stat_list.append(('', len(stat_list)))
+            # stat_list.append(('', len(stat_list)))
 
         worker_queue_qsize = self.worker.queue.qsize()
         finished_else_ = worker_queue_qsize if not self.manager.finished else 0
