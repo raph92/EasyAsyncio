@@ -7,6 +7,7 @@ from asyncio import Future, AbstractEventLoop, QueueFull
 from threading import Thread
 from typing import Set
 
+import uvloop
 from aiohttp import ClientSession
 
 from . import logger
@@ -38,6 +39,7 @@ class JobManager(Thread):
 
     def __init__(self, auto_save=True, use_session=False):
         super().__init__()
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         self.auto_save = auto_save
         # self.loop.set_debug(True)
         self.loop = asyncio.get_event_loop()
