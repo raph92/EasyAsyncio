@@ -14,7 +14,8 @@ setup(
                 'asciimatics',
                 'diskcache',
                 'easyfilemanager @ https://github.com'
-                '/RaphaelNanje/easyfilemanager/archive/v3.0.1.tar.gz'
+                '/RaphaelNanje/easyfilemanager/archive/v3.0.1.tar.gz',
+                'uvloop'
 
         ],
         python_requires='~=3.6'
