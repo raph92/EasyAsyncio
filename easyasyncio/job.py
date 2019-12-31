@@ -310,7 +310,7 @@ class Job(abc.ABC):
             name = self.result_name
         self.stats[name] += n
 
-    def get_uncached(self, items: Union[list, set, CacheSet, Deque]):
+    def get_uncached(self, items: Union[list, set, CacheSet, Deque, range]):
         """
         Args:
             items: A collection of items to be processed
