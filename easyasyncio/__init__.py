@@ -13,6 +13,7 @@ from .jobmanager import JobManager
 from .producer import Producer
 from .queuemanager import QueueManager
 from .stats import Stats
+from .cachetypes import CacheSet
 
 __version__ = '8.0.1'
 
@@ -24,6 +25,7 @@ __all__ = [
         'Consumer',
         'QueueManager',
         'DataManager',
+        'CacheSet',
         'Constants',
         'Stats',
         'AutoSave',
