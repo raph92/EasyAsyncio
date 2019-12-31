@@ -1,4 +1,3 @@
-import asyncio
 import os
 import sys
 
@@ -16,12 +15,10 @@ class AutoSaveExample(OutputJob):
 
     async def fill_queue(self):
         self.log.info('starting to queue')
-        for i in set(range(1, self.input_data + 1)).difference(
-                self.cache_name):
+        for i in self.get_uncached(range(1, self.input_data + 1)):
             # if i not in set(self.num_cache):
             self.log.info('queuing %s', i)
             await self.queue.put(i)
-            await asyncio.sleep(0.00001)
         self.log.info('calling queue_finished()')
         await self.queue_finished()
 
