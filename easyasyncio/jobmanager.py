@@ -174,6 +174,7 @@ class JobManager(Thread):
             except Exception as e:
                 self.logger.exception(e)
         self.context.stats_thread.display()
+        self.context.data.save_caches()
         self.context.data.clean()
         if self.status == 'Stopping...':
             self.status = 'Shutdown'
