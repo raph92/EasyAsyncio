@@ -20,11 +20,10 @@ class CacheSet(Iterable):
         self.index[self._hash(obj)] = obj
 
     def remove(self, obj):
-        hash_ = self._hash(obj)
-        index = set(self.index.keys())
-        if hash_ not in index:
+        try:
+            self.index.pop(self._hash(obj))
+        except KeyError:
             raise KeyError(obj)
-        del self.index[hash_]
 
     def pop(self):
         return self.index.popitem()[1]
