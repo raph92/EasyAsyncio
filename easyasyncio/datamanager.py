@@ -1,12 +1,15 @@
 import logging
 import os
 from collections import UserDict
-from typing import Sized, Iterable, Dict
+from typing import Sized, Iterable, Dict, Union, TYPE_CHECKING
 
 from diskcache import Index, Deque
 from easyfilemanager import FileManager
 
 from easyasyncio.cachetypes import CacheSet
+
+if TYPE_CHECKING:
+    from easyasyncio import Job
 
 
 def _numericize(loaded_data):
@@ -70,9 +73,9 @@ class DataManager(UserDict):
         if loaded_data:
             self.load(initial_data, loaded_data, name)
 
-    def register_cache(self, name, data_type, path_to_file=None,
-                       display=True, load=True, save_kwargs: dict = None,
-                       load_kwargs: dict = None) -> None:
+    def register_cache(self, name, data_type, path_to_file=None, display=True,
+                       load=True, save_kwargs: dict = None,
+                       load_kwargs: dict = None, directory='.') -> None:
         """
         The purpose of this function is to avoid having all objects loaded
         in memory and instead use a diskcache for storing/accessing objects.
@@ -88,6 +91,7 @@ class DataManager(UserDict):
 
         This data will be saved using ``save()``
         Args:
+            directory: The name of the folder in ./cache/ to save this cache to
             name: The name to access this cache by `self.get(name)`
             data_type: The kind of cache to save data to (set, list, dict)
             path_to_file: An optional file to save cached data to on exit
@@ -118,19 +122,29 @@ class DataManager(UserDict):
                                   (str(loaded_data)[:75] + '...') if len(
                                           str(loaded_data)) > 75 else str(
                                           loaded_data))
-        self._create_cache(data_type, loaded_data, name)
+        self._create_cache(data_type, loaded_data, name, directory)
         del loaded_data
 
-    def _create_cache(self, initial_data, loaded_data, name):
+    def register_job_cache(self, job: 'Job', data_type: Union[set, list, dict],
+                           name: str) -> None:
+        full_name = f'{job.name}/{name}'
+        self.register_cache(full_name, data_type, directory=job.name,
+                            display=False, load=False)
+
+    def _create_cache(self, initial_data, loaded_data, name, directory):
+        if '/' in name:
+            path_name = name.split('/')[1]
+        else: path_name = name
+        path = os.path.join('cache', directory, path_name)
         if isinstance(initial_data, set):
             if loaded_data: loaded_data = _numericize(loaded_data)
-            self[name] = CacheSet(loaded_data or set(), f'cache/{name}')
+            self[name] = CacheSet(loaded_data or set(), path)
             self.logger.debug('creating new CacheSet for %s', name)
         elif isinstance(initial_data, list):
-            self[name] = Deque(loaded_data or list(), f'cache/{name}')
+            self[name] = Deque(loaded_data or list(), path)
             self.logger.debug('creating new Deque for %s', name)
         elif isinstance(initial_data, dict):
-            self[name] = Index(f'cache/{name}', **(loaded_data or dict()))
+            self[name] = Index(path, **(loaded_data or dict()))
             self.logger.debug('creating new Index for %s', name)
 
     def load(self, data, loaded_data, name):
@@ -144,6 +158,9 @@ class DataManager(UserDict):
             self[name].extend(loaded_data)
         elif isinstance(data, dict):
             self[name].update(loaded_data)
+
+    def get_job_cache(self, job: 'Job', name: str):
+        return self.get(f'{job.name}/{name}')
 
     def file_update(self, name, data):
         self[name] = data
@@ -174,6 +191,16 @@ class DataManager(UserDict):
                                             **save_kwargs)
             except Exception as e:
                 self.logger.exception(e)
+
+    def save_caches(self):
+        self.logger.debug('saving cache files')
+        for name, value in self.items():
+            if name not in self.filemanager:
+                continue
+            if isinstance(value, (CacheSet, Deque)):
+                self.filemanager.save(name, list(value))
+            elif isinstance(value, Index):
+                self.filemanager.save(name, dict(value))
 
     def clean(self):
         """
