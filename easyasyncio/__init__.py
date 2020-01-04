@@ -14,7 +14,7 @@ from .producer import Producer
 from .queuemanager import QueueManager
 from .stats import Stats
 from .cachetypes import CacheSet
-from easyasyncio.utilities.decache import core as decache
+from .utilities.decache import core as decache
 
 __all__ = [
         'Context',
