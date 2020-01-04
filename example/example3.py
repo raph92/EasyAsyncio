@@ -1,23 +1,24 @@
 import asyncio
+from typing import Optional
 
-from easyasyncio import Producer, JobManager, Consumer
+from easyasyncio import JobManager, Job
+from easyasyncio.job import ForwardQueuingJob, OutputJob
 
 
-class ConsumerNumberExample(Consumer):
+class ConsumerNumberExample(OutputJob):
     """print numbers asynchronously"""
+
+    def __init__(self, output: Optional[str] = '', **kwargs) -> None:
+        super().__init__(output, **kwargs)
 
     async def fill_queue(self):
         pass
-
-    def __init__(self) -> None:
-        super().__init__()
 
     async def do_work(self, number):
         """this logic gets called after an object
          is retrieved from the queue"""
         await asyncio.sleep(1)
-        self.log.info(number)
-        self.increment_stat()
+        return number
 
     @property
     def name(self):
@@ -29,19 +30,18 @@ class ConsumerNumberExample(Consumer):
         return 'consume_number'
 
 
-class ExampleProducer(Producer):
+class ExampleProducer(ForwardQueuingJob):
 
-    def __init__(self, data):
-        super().__init__(data)
+    def __init__(self, successor: Job, **kwargs) -> None:
+        super().__init__(successor, **kwargs)
 
     async def fill_queue(self):
-        for i in range(self.input_data):
+        for i in self.input_data:
             await self.queue.put(i)
         await self.queue_finished()
 
     async def do_work(self, num):
-        await self.queue_successor(num)
-        self.increment_stat()
+        return num
 
     async def on_finish(self):
         await self.successor.queue_finished()
@@ -52,9 +52,9 @@ class ExampleProducer(Producer):
 
 
 manager = JobManager(False)
-consumer = ConsumerNumberExample()
-producer = ExampleProducer(100)
-producer.add_successor(consumer)
+consumer = ConsumerNumberExample(enable_cache=True)
+producer = ExampleProducer(consumer, input_data=range(100),
+                           enable_cache=False)
 consumer.max_concurrent = 5
 manager.add_jobs(consumer, producer)
 
