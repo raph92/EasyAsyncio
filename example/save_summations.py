@@ -1,9 +1,8 @@
 import os
 import sys
 
-from easyasyncio.job import OutputJob
-
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
+from easyasyncio.job import OutputJob
 from easyasyncio import JobManager
 
 

@@ -136,3 +136,4 @@ testfiles/
 /mypyerrors
 cache.db*
 output*
+/pypy-env/
