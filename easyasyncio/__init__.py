@@ -14,7 +14,6 @@ from .producer import Producer
 from .queuemanager import QueueManager
 from .stats import Stats
 from .cachetypes import CacheSet
-from .utilities.decache import core as decache
 
 __all__ = [
         'Context',
@@ -28,6 +27,5 @@ __all__ = [
         'Constants',
         'Stats',
         'AutoSave',
-        'logger',
-        'decache'
+        'logger'
 ]

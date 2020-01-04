@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import json
 import logging
 from os.path import exists
@@ -54,7 +56,7 @@ def core(cache_file: str, output: str):
         cache_file = cache_file.replace('cache.db', '')
         data = _load(cache_file)
     except Exception as e:
-        logger.exception('Error loading cache file')
+        click.echo('Error loading cache file')
         raise
     else:
         with open(output, 'w') as f:

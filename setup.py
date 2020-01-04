@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
         name='easyasyncio',
-        version='11.0.1',
+        version='11.0.2',
         packages=['easyasyncio'],
         url='https://github.com/RaphaelNanje/easyasyncio.git',
         license='MIT',
@@ -22,7 +22,7 @@ setup(
         python_requires='~=3.6',
         entry_points={
                 'console_scripts': [
-                        'decache=easyasyncio:decache'
+                        'decache=bin.decache:core'
                 ],
         }
 )
