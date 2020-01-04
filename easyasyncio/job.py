@@ -6,7 +6,8 @@ from asyncio import (AbstractEventLoop, Semaphore, Future, Queue,
                      QueueFull, CancelledError)
 from collections import deque, Counter
 from time import time
-from typing import (Set, Optional, Any, MutableMapping, Union, TYPE_CHECKING)
+from typing import (Set, Any, MutableMapping, Union, TYPE_CHECKING, Dict,
+                    Optional)
 
 from aiohttp import ServerDisconnectedError
 from diskcache import Deque, Index
@@ -34,16 +35,14 @@ class Job(abc.ABC):
                  input_data=None,
                  max_concurrent=20,
                  max_queue_size=0,
-                 predecessor: 'Optional[Job]' = None,
-                 successor: 'Optional[Job]' = None,
-                 output: str = '',
-                 cache_name='',
+                 cache_name='completed',
                  cache_finished_items=True,
                  continuous=False,
                  cache_queued_items=False,
+                 enable_cache=True,
                  auto_add_results=True,
-                 queue_cache_name='',
-                 product_name='',
+                 queue_cache_name='resume',
+                 product_name='successes',
                  log_level=logging.INFO) -> None:
         """
 
@@ -53,11 +52,7 @@ class Job(abc.ABC):
                 from a file
             max_concurrent (int): The maximum number of workers
             max_queue_size (int): The maximum items the queue can hold at once
-            predecessor (Job, Optional): The queue that passes completed data
-                to this Job
-            successor (Job): The Job that will receive this Job's completed
-                data
-            output (str): The name of the key to the output file
+
             cache_finished_items (bool): Whether or not this Job should cache
                 finished items automatically. This will prevent the program
                 from working on the same items multiple times
@@ -76,22 +71,13 @@ class Job(abc.ABC):
         self.auto_add_results = auto_add_results
         self.input_data = input_data
         self.max_concurrent = max_concurrent
-        self.output = output
         self.stats = Counter()
         self.tasks = set()
-        self.info = dict()
+        self.info: Dict[str, Any] = dict()
         self.info['max_queue_size'] = ('infinite' if max_queue_size == 0
                                        else max_queue_size)
         self.info['max_workers'] = max_concurrent
         self.info['workers'] = 0
-        self.predecessor = predecessor
-        self.successor = successor
-        if predecessor:
-            predecessor.add_successor(self)
-            self.info['supersedes'] = predecessor.name
-        if successor:
-            successor.add_predecessor(self)
-            self.info['precedes'] = successor.name
         self._status = ''
         self.logs: deque[str] = deque(maxlen=50)
         self.log = logging.getLogger(self.name)
@@ -99,11 +85,15 @@ class Job(abc.ABC):
         self.running = False
         self._queue_size = max_queue_size
         self.cache_finished_items = cache_finished_items
-        self.cache_name = cache_name or 'completed'
+        self.cache_name = cache_name
         self.cache_queued_items = cache_queued_items
-        self.queue_cache_name = queue_cache_name or 'resume'
+        self.queue_cache_name = queue_cache_name
+        self.cache_enabled = enable_cache
+        if not enable_cache:
+            self.cache_finished_items = False
+            self.cache_queued_items = False
         self.continuous = continuous
-        self.result_name = product_name or 'successes'
+        self.result_name = product_name
 
     @property
     def queue(self) -> Queue:
@@ -163,12 +153,15 @@ class Job(abc.ABC):
         self.context.queues.new(self.name, self._queue_size)
         self.log.addHandler(JobLogHandler(self, level=self.log_level))
         self.status('initialized')
-        if self.cache_finished_items:
-            context.data.register_job_cache(self, set(), self.cache_name)
-        if self.cache_queued_items:
-            context.data.register_job_cache(self, set(), self.queue_cache_name)
-        context.data.register_job_cache(self, set(), self.success_cache_name)
-        context.data.register_job_cache(self, set(), self.fail_cache_name)
+        if self.cache_enabled:
+            if self.cache_finished_items:
+                context.data.register_job_cache(self, set(), self.cache_name)
+            if self.cache_queued_items:
+                context.data.register_job_cache(self, set(),
+                                                self.queue_cache_name)
+            context.data.register_job_cache(self, set(),
+                                            self.success_cache_name)
+            context.data.register_job_cache(self, set(), self.fail_cache_name)
 
     async def run(self):
         """setup workers and start"""
@@ -191,6 +184,8 @@ class Job(abc.ABC):
             try:
                 await asyncio.gather(*self.tasks, loop=self.loop,
                                      return_exceptions=False)
+            except CancelledError:
+                pass
             except Exception as e:
                 self.log.exception(e)
                 raise
@@ -257,26 +252,48 @@ class Job(abc.ABC):
     async def _on_work_processed(self, input_data, result):
         try:
             if result is None: return
-            if self.cache_queued_items:
-                try:
-                    self.queue_cache.remove(input_data)
-                except KeyError:
-                    pass
-            if self.cache_finished_items:
-                self.completed_cache.add(input_data)
-            if result is not False:
+            self.decache(input_data, self.queue_cache)
+            self.cache(input_data, self.completed_cache)
+            if result is not False:  # success
                 # only use post-processing if the result is not a boolean
-                self.success_cache.add(input_data)
+                self.cache(input_data, self.success_cache)
                 if result is not True and self.auto_add_results:
                     await self._post_process(result)
                 if isinstance(result, (list, set, dict)):
                     self.increment_stat(len(result), self.result_name)
                 else: self.increment_stat(name=self.result_name)
-            else:
-                self.failure_cache.add(input_data)
+            else:  # failure
+                self.cache(input_data, self.failure_cache)
                 self.increment_stat(name='failed')
         finally:
             self.increment_stat(name='attempted')
+
+    def cache(self, data: object, cache: CacheSet):
+        if not self.cache_enabled:
+            return
+        if cache is self.success_cache:
+            self.success_cache.add(data)
+        elif cache is self.failure_cache:
+            self.failure_cache.add(data)
+        elif self.cache_finished_items and cache == self.completed_cache:
+            self.completed_cache.add(data)
+        elif self.cache_queued_items and cache == self.queue_cache:
+            self.queue_cache.add(data)
+
+    def decache(self, data: object, cache: CacheSet):
+        if not self.cache_enabled:
+            return
+        try:
+            if cache is self.success_cache:
+                self.success_cache.remove(data)
+            elif cache is self.failure_cache:
+                self.failure_cache.remove(data)
+            elif self.cache_finished_items and cache == self.completed_cache:
+                self.completed_cache.remove(data)
+            elif self.cache_queued_items and cache == self.queue_cache:
+                self.queue_cache.remove(data)
+        except KeyError:
+            pass
 
     @abstractmethod
     async def do_work(self, input_data) -> object:
@@ -354,36 +371,6 @@ class Job(abc.ABC):
         assert self.cache_finished_items
         return set(items).difference(set(self.completed_cache)) or set()
 
-    async def queue_successor(self, data):
-        await self.successor.queue.put(data)
-        if self.successor.cache_queued_items:
-            self.successor.queue_cache.add(data)
-
-    def add_successor(self, successor: 'Job'):
-        """
-        The next async worker that will work on the data that
-        this async worker gathers
-        """
-        assert successor != self
-        self.successor = successor
-        self.successor.predecessor = self
-        self.info['precedes'] = successor.name
-
-    def add_predecessor(self, predecessor: 'Job'):
-        """
-        The next async worker that will work on the data that
-        this async worker gathers
-        """
-        assert predecessor != self
-        self.predecessor = predecessor
-        self.predecessor.successor = self
-        self.info['supersedes'] = predecessor.name
-
-    async def queue_predecessor(self, data):
-        await self.predecessor.queue.put(data)
-        if self.predecessor.cache_queued_items:
-            self.predecessor.queue_cache.add(data)
-
     def status(self, *strings: str):
         status = ' '.join(
                 [str(s) if not isinstance(s, str) else s for s in strings])
@@ -411,10 +398,23 @@ class ForwardQueuingJob(Job, abc.ABC):
     """
 
     def __init__(self, successor: Job, **kwargs) -> None:
-        super().__init__(successor=successor, **kwargs)
+        """
+
+        Args:
+            successor (Job): The Job that will receive this Job's completed
+                data
+        """
+        super().__init__(**kwargs)
+        self.successor = successor
+        self.info['precedes'] = successor
 
     async def on_item_completed(self, obj):
         await self.queue_successor(obj)
+
+    async def queue_successor(self, data):
+        await self.successor.queue.put(data)
+        if self.successor.cache_queued_items:
+            self.successor.queue_cache.add(data)
 
     async def on_finish(self):
         await super().on_finish()
@@ -429,21 +429,38 @@ class BackwardQueuingJob(Job, abc.ABC):
     """
 
     def __init__(self, predecessor: Job, **kwargs) -> None:
+        """
+
+        Args:
+            predecessor (Job, Optional): The queue that passes completed data
+                to this Job
+            **kwargs:
+        """
         kwargs.setdefault('cache_queued_items', True)
-        super().__init__(predecessor=predecessor, **kwargs)
+        super().__init__(**kwargs)
+        self.predecessor = predecessor
+        self.info['supersedes'] = predecessor.name
 
     async def on_item_completed(self, obj):
         await self.queue_predecessor(obj)
+
+    async def queue_predecessor(self, data):
+        await self.predecessor.queue.put(data)
+        if self.predecessor.cache_queued_items:
+            self.predecessor.queue_cache.add(data)
 
 
 class OutputJob(Job, abc.ABC):
     """This :class:`Job` will pass all completed items to an output file"""
 
-    def __init__(self, output: str, **kwargs) -> None:
-        kwargs.setdefault('cache_queued_items', True)
-        super().__init__(output=output, **kwargs)
+    def __init__(self, output: Optional[str] = '', **kwargs) -> None:
+        self.output = output
+        super().__init__(cache_queued_items=True, **kwargs)
 
     async def on_item_completed(self, o):
+        if not self.output:
+            self.log.info(o)
+            return
         cache = self.get_data(self.output)
         if isinstance(cache, (CacheSet, set)):
             cache.add(o)
