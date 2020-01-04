@@ -6,13 +6,16 @@ from asyncio import (AbstractEventLoop, Semaphore, Future, Queue,
                      QueueFull, CancelledError)
 from collections import deque, Counter
 from time import time
-from typing import (Set, Optional, Any, MutableMapping, Union)
+from typing import (Set, Optional, Any, MutableMapping, Union, TYPE_CHECKING)
 
 from aiohttp import ServerDisconnectedError
 from diskcache import Deque, Index
 
 from .cachetypes import CacheSet
 from .context import Context
+
+if TYPE_CHECKING:
+    from . import DataManager
 
 
 class Job(abc.ABC):
@@ -23,6 +26,9 @@ class Job(abc.ABC):
     sem: Semaphore
     end_time: float
     input_data: Any
+    success_cache_name = 'success'
+    fail_cache_name = 'failed'
+    data: 'DataManager'
 
     def __init__(self,
                  input_data=None,
@@ -93,9 +99,9 @@ class Job(abc.ABC):
         self.running = False
         self._queue_size = max_queue_size
         self.cache_finished_items = cache_finished_items
-        self.cache_name = cache_name or f'{self.name}_completed'
+        self.cache_name = cache_name or 'completed'
         self.cache_queued_items = cache_queued_items
-        self.queue_cache_name = queue_cache_name or f'{self.name}_queue_resume'
+        self.queue_cache_name = queue_cache_name or 'resume'
         self.continuous = continuous
         self.result_name = product_name or 'successes'
 
@@ -109,16 +115,33 @@ class Job(abc.ABC):
         A cache built for avoiding duplicates.
         All processed items from the queue will be added here
         """
-        return self.context.data.get(self.cache_name)
+        return self.data.get_job_cache(self, self.cache_name)
 
     @property
     def queue_cache(self) -> CacheSet:
         """
         A cache built for resuming any progress made when any Job is
         restarted. On load, the program will queue all of the resume_cache
-        items that are not in **self.cache**
+        items that are not in **self.completed_cache**
         """
-        return self.context.data.get(self.queue_cache_name)
+        return self.data.get_job_cache(self, self.queue_cache_name)
+
+    @property
+    def success_cache(self) -> CacheSet:
+        """
+        A cache built for resuming any progress made when any Job is
+        restarted. This cache will store all of the queued item that
+        successfully returned a value that is not **False** or **None**
+        """
+        return self.data.get_job_cache(self, self.success_cache_name)
+
+    @property
+    def failure_cache(self) -> CacheSet:
+        """
+        This cache will store all of the queued item that returned a value that
+        is False
+        """
+        return self.data.get_job_cache(self, self.fail_cache_name)
 
     @property
     @abstractmethod
@@ -133,6 +156,7 @@ class Job(abc.ABC):
         before this class can access any property from **self.context**
         """
         self.context = context
+        self.data = context.data
         self.loop = context.loop
         self.context.jobs.add(self)
         self.sem = Semaphore(self.max_concurrent, loop=self.loop)
@@ -140,10 +164,11 @@ class Job(abc.ABC):
         self.log.addHandler(JobLogHandler(self, level=self.log_level))
         self.status('initialized')
         if self.cache_finished_items:
-            context.data.register_cache(self.cache_name, set(), display=False)
+            context.data.register_job_cache(self, set(), self.cache_name)
         if self.cache_queued_items:
-            context.data.register_cache(self.queue_cache_name, set(),
-                                        display=False)
+            context.data.register_job_cache(self, set(), self.queue_cache_name)
+        context.data.register_job_cache(self, set(), self.success_cache_name)
+        context.data.register_job_cache(self, set(), self.fail_cache_name)
 
     async def run(self):
         """setup workers and start"""
@@ -163,8 +188,12 @@ class Job(abc.ABC):
             self.tasks.add(queue_task)
             # process
             self.status('working')
-            await asyncio.gather(*self.tasks, loop=self.loop,
-                                 return_exceptions=False)
+            try:
+                await asyncio.gather(*self.tasks, loop=self.loop,
+                                     return_exceptions=False)
+            except Exception as e:
+                self.log.exception(e)
+                raise
         finally:
             self.running = False
             # finish
@@ -208,7 +237,7 @@ class Job(abc.ABC):
             try:
                 result = await self.do_work(queued_data)
             except CancelledError:
-                self.log.debug('work on %s cancelled', queued_data)
+                self.log.debug('work on %s has been cancelled', queued_data)
                 break
             except ServerDisconnectedError:
                 self.log.error('server disconnected')
@@ -237,11 +266,15 @@ class Job(abc.ABC):
                 self.completed_cache.add(input_data)
             if result is not False:
                 # only use post-processing if the result is not a boolean
+                self.success_cache.add(input_data)
                 if result is not True and self.auto_add_results:
                     await self._post_process(result)
                 if isinstance(result, (list, set, dict)):
                     self.increment_stat(len(result), self.result_name)
                 else: self.increment_stat(name=self.result_name)
+            else:
+                self.failure_cache.add(input_data)
+                self.increment_stat(name='failed')
         finally:
             self.increment_stat(name='attempted')
 
@@ -318,7 +351,7 @@ class Job(abc.ABC):
         Returns: all objects from **items** which have not yet been
         cached/processed
         """
-
+        assert self.cache_finished_items
         return set(items).difference(set(self.completed_cache)) or set()
 
     async def queue_successor(self, data):
@@ -362,7 +395,7 @@ class Job(abc.ABC):
         return round((self.queue.qsize()) / per_second)
 
     def get_data(self, name):
-        return self.context.data.get(name)
+        return self.data.get(name)
 
     def __repr__(self):
         return self.name
