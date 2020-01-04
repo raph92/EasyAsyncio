@@ -15,8 +15,14 @@ setup(
                 'diskcache',
                 'easyfilemanager @ https://github.com'
                 '/RaphaelNanje/easyfilemanager/archive/v3.0.1.tar.gz',
-                'uvloop'
+                'uvloop',
+                'click'
 
         ],
-        python_requires='~=3.6'
+        python_requires='~=3.6',
+        entry_points={
+                'console_scripts': [
+                        'decache=easyasyncio:decache'
+                ],
+        }
 )

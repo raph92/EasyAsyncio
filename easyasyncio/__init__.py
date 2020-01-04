@@ -14,8 +14,7 @@ from .producer import Producer
 from .queuemanager import QueueManager
 from .stats import Stats
 from .cachetypes import CacheSet
-
-__version__ = '8.0.1'
+from easyasyncio.utilities.decache import core as decache
 
 __all__ = [
         'Context',
@@ -30,4 +29,5 @@ __all__ = [
         'Stats',
         'AutoSave',
         'logger',
+        'decache'
 ]
