@@ -22,7 +22,7 @@ setup(
         python_requires='~=3.6',
         entry_points={
                 'console_scripts': [
-                        'decache=bin.decache:core'
+                        'decache=easyasyncio.bin.decache:core'
                 ],
         }
 )
