@@ -134,9 +134,8 @@ class Job(abc.ABC):
         return self.data.get_job_cache(self, self.fail_cache_name)
 
     @property
-    @abstractmethod
     def name(self):
-        pass
+        return self.__class__.__name__
 
     def initialize(self, context: Context):
         """
