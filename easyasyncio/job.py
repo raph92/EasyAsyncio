@@ -126,12 +126,12 @@ class Job(abc.ABC):
         return self.data.get_job_cache(self, self.success_cache_name)
 
     @property
-    def failure_cache(self) -> CacheSet:
+    def failed_inputs(self) -> CacheSet:
         """
         This cache will store all of the queued item that returned a value that
         is False
         """
-        return self.data.get_job_cache(self, self.fail_cache_name)
+        return self.get_data('%s.failed' % self.name)
 
     @property
     def name(self):
@@ -160,7 +160,8 @@ class Job(abc.ABC):
                                                 self.queue_cache_name)
             context.data.register_job_cache(self, set(),
                                             self.success_cache_name)
-            context.data.register_job_cache(self, set(), self.fail_cache_name)
+        self.data.register_cache('%s.failed' % self.name, set(),
+                                 './data/failed/%s.txt' % self.name)
 
     async def run(self):
         """setup workers and start"""
@@ -238,42 +239,45 @@ class Job(abc.ABC):
                 await self.queue.put(queued_data)
             except Exception as e:
                 self.increment_stat(name='exceptions')
-                self.log.exception(e)
+                self.log.error('worker uncaught exception', exc_info=1,
+                               extra=dict(queued_data=queued_data))
                 await self.queue.put(queued_data)
+                self.failed_inputs.add(queued_data)
+                self.with_errors = True
             else:
                 await self._on_work_processed(queued_data, result)
             finally:
                 self.queue.task_done()
+                self.increment_stat(name='attempted')
 
         self.info['workers'] -= 1
         self.log.debug('[worker%s] terminated', num)
 
     async def _on_work_processed(self, input_data, result):
         try:
-            if result is None: return
-            self.decache(input_data, self.queue_cache)
-            self.cache(input_data, self.completed_cache)
-            if result is not False:  # success
-                # only use post-processing if the result is not a boolean
-                self.cache(input_data, self.success_cache)
-                if result is not True and self.auto_add_results:
-                    await self._post_process(result)
-                if isinstance(result, (list, set, dict)):
-                    self.increment_stat(len(result), self.result_name)
-                else: self.increment_stat(name=self.result_name)
-            else:  # failure
-                self.cache(input_data, self.failure_cache)
-                self.increment_stat(name='failed')
-        finally:
-            self.increment_stat(name='attempted')
+            self.failed_inputs.remove(input_data)
+        except KeyError:
+            pass
+        if result is None: return
+        self.decache(input_data, self.queue_cache)
+        self.cache(input_data, self.completed_cache)
+        if result is not False:  # success
+            # only use post-processing if the result is not a boolean
+            self.cache(input_data, self.success_cache)
+            if result is not True and self.auto_add_results:
+                await self._post_process(result)
+            if isinstance(result, (list, set, dict)):
+                self.increment_stat(len(result), self.result_name)
+            else: self.increment_stat(name=self.result_name)
+        else:  # failure
+            self.failed_inputs.add(input_data)
+            self.increment_stat(name='failed')
 
     def cache(self, data: object, cache: CacheSet):
         if not self.cache_enabled:
             return
         if cache is self.success_cache:
             self.success_cache.add(data)
-        elif cache is self.failure_cache:
-            self.failure_cache.add(data)
         elif self.cache_finished_items and cache == self.completed_cache:
             self.completed_cache.add(data)
         elif self.cache_queued_items and cache == self.queue_cache:
@@ -285,8 +289,6 @@ class Job(abc.ABC):
         try:
             if cache is self.success_cache:
                 self.success_cache.remove(data)
-            elif cache is self.failure_cache:
-                self.failure_cache.remove(data)
             elif self.cache_finished_items and cache == self.completed_cache:
                 self.completed_cache.remove(data)
             elif self.cache_queued_items and cache == self.queue_cache:
