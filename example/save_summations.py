@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
@@ -27,17 +28,9 @@ class AutoSaveExample(OutputJob):
         sum_of_nums = sum(list(range(number)))
         self.log.info('Summation of %s is %s', number, sum_of_nums)
         self.context.stats['test_stat'] += 1
+        if random.randint(0, 5000) == 5:
+            raise Exception('Test exception')
         return sum_of_nums
-
-    @property
-    def name(self):
-        """
-        Name the object or service being provided.
-        This will effect how the StatsDisplay displays information about
-        this Job.
-        """
-        return 'PrintNumber'
-
 
 manager = JobManager()
 manager.context.data.register_cache('output', set(), 'output/output.txt')
