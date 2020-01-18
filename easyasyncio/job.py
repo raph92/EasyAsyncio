@@ -86,12 +86,12 @@ class Job(abc.ABC):
         self._queue_size = max_queue_size
         self.cache_finished_items = cache_finished_items
         self.cache_name = cache_name
-        self.cache_queued_items = cache_queued_items
+        self.use_resume = cache_queued_items
         self.queue_cache_name = queue_cache_name
         self.cache_enabled = enable_cache
         if not enable_cache:
             self.cache_finished_items = False
-            self.cache_queued_items = False
+            self.use_resume = False
         self.continuous = continuous
         self.result_name = product_name
 
@@ -155,7 +155,7 @@ class Job(abc.ABC):
         if self.cache_enabled:
             if self.cache_finished_items:
                 context.data.register_job_cache(self, set(), self.cache_name)
-            if self.cache_queued_items:
+            if self.use_resume:
                 context.data.register_job_cache(self, set(),
                                                 self.queue_cache_name)
             context.data.register_job_cache(self, set(),
@@ -280,7 +280,7 @@ class Job(abc.ABC):
             self.success_cache.add(data)
         elif self.cache_finished_items and cache == self.completed_cache:
             self.completed_cache.add(data)
-        elif self.cache_queued_items and cache == self.queue_cache:
+        elif self.use_resume and cache == self.queue_cache:
             self.queue_cache.add(data)
 
     def decache(self, data: object, cache: CacheSet):
@@ -291,7 +291,7 @@ class Job(abc.ABC):
                 self.success_cache.remove(data)
             elif self.cache_finished_items and cache == self.completed_cache:
                 self.completed_cache.remove(data)
-            elif self.cache_queued_items and cache == self.queue_cache:
+            elif self.use_resume and cache == self.queue_cache:
                 self.queue_cache.remove(data)
         except KeyError:
             pass
@@ -408,13 +408,14 @@ class ForwardQueuingJob(Job, abc.ABC):
         super().__init__(**kwargs)
         self.successor = successor
         self.info['precedes'] = successor
+        self.use_resume = False
 
     async def on_item_completed(self, obj):
         await self.queue_successor(obj)
 
     async def queue_successor(self, data):
         await self.successor.queue.put(data)
-        if self.successor.cache_queued_items:
+        if self.successor.use_resume:
             self.successor.queue_cache.add(data)
 
     async def on_finish(self):
@@ -447,7 +448,7 @@ class BackwardQueuingJob(Job, abc.ABC):
 
     async def queue_predecessor(self, data):
         await self.predecessor.queue.put(data)
-        if self.predecessor.cache_queued_items:
+        if self.predecessor.use_resume:
             self.predecessor.queue_cache.add(data)
 
 
@@ -460,8 +461,7 @@ class OutputJob(Job, abc.ABC):
 
     async def on_item_completed(self, o):
         if not self.output:
-            self.log.info(o)
-            return
+            raise Exception('Output name is not set')
         cache = self.get_data(self.output)
         if isinstance(cache, (CacheSet, set)):
             cache.add(o)
