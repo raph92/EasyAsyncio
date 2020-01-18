@@ -5,7 +5,6 @@ from aiohttp import ClientSession
 from .autosave import AutoSave
 from .datamanager import DataManager
 from .queuemanager import QueueManager
-from .settings import Settings
 from .stats import Stats, StatsDisplay
 
 if TYPE_CHECKING:
@@ -16,7 +15,6 @@ if TYPE_CHECKING:
 class Context:
     """The purpose of this class is to access all important
     objects from one place"""
-    settings = Settings()
     queues: QueueManager
     jobs: 'Set[Job]' = set()
     save_thread: 'AutoSave' = None

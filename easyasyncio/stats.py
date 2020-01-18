@@ -81,7 +81,7 @@ class Stats(typing.Counter[int]):
 
 class StatsDisplay:
     name = 'StatsDisplay'
-    interval = 15
+    interval = 30
 
     def __init__(self, context: 'Context') -> None:
         super().__init__()

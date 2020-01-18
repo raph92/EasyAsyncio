@@ -11,9 +11,9 @@ import uvloop
 from aiohttp import ClientSession
 
 from . import logger
+from .constants import HEADERS
 from .context import Context
 from .job import Job
-from .settings import HEADERS
 from .tui import on_screen_ready
 
 
