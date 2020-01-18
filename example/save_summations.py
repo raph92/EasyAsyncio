@@ -16,7 +16,6 @@ class AutoSaveExample(OutputJob):
     async def fill_queue(self):
         self.log.info('starting to queue')
         for i in self.get_uncached(range(1, self.input_data + 1)):
-            # if i not in set(self.num_cache):
             self.log.info('queuing %s', i)
             await self.queue.put(i)
         self.log.info('calling queue_finished()')
@@ -25,12 +24,13 @@ class AutoSaveExample(OutputJob):
     async def do_work(self, number):
         """this logic gets called after an object
         is retrieved from the queue"""
-        sum_of_nums = sum(list(range(number)))
+        sum_of_nums = sum(list(range(1, number)))
         self.log.info('Summation of %s is %s', number, sum_of_nums)
         self.context.stats['test_stat'] += 1
         if random.randint(0, 5000) == 5:
             raise Exception('Test exception')
         return sum_of_nums
+
 
 manager = JobManager()
 manager.context.data.register_cache('output', set(), 'output/output.txt')

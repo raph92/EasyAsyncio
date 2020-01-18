@@ -2,7 +2,7 @@ import logging
 
 logger = logging.getLogger('easyasyncio')
 
-from . import config
+from . import log
 from .job import Job
 from .autosave import AutoSave
 from .constants import Constants
