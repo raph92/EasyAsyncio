@@ -14,7 +14,7 @@ setup(
                 'asciimatics',
                 'diskcache',
                 'easyfilemanager @ https://github.com'
-                '/RaphaelNanje/easyfilemanager/archive/v3.0.2-1.tar.gz',
+                '/RaphaelNanje/easyfilemanager/archive/v3.1.0.tar.gz',
                 'uvloop',
                 'click'
 

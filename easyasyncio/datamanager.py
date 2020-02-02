@@ -198,7 +198,7 @@ class DataManager(UserDict):
             if name not in self.filemanager:
                 continue
             if isinstance(value, (CacheSet, Deque)):
-                self.filemanager.save(name, list(value))
+                self.filemanager.save(name, list(value), mode='w+')
             elif isinstance(value, Index):
                 self.filemanager.save(name, dict(value))
 
