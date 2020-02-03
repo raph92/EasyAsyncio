@@ -195,12 +195,15 @@ class DataManager(UserDict):
     def save_caches(self):
         self.logger.debug('saving cache files')
         for name, value in self.items():
+            save_kwargs = self.save_kwargs.get(name, {})
             if name not in self.filemanager:
                 continue
             if isinstance(value, (CacheSet, Deque)):
-                self.filemanager.save(name, list(value), mode='w+')
+                self.filemanager.smart_save(name, list(value), mode='w+',
+                                            **save_kwargs)
             elif isinstance(value, Index):
-                self.filemanager.save(name, dict(value))
+                self.filemanager.smart_save(name, dict(value),
+                                            **save_kwargs)
 
     def clean(self):
         """
