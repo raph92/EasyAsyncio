@@ -9,7 +9,7 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install
 easyasyncio.
 
 ```bash
-pip install -e git+ssh://git@github.com/RaphaelNanje/EasyAsyncio.git#egg=easyasyncio
+pip install https://github.com/RaphaelNanje/EasyAsyncio/archive/cache_changes.zip
 ```
 
 ## Usage
