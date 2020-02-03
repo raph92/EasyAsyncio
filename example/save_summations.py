@@ -27,14 +27,17 @@ class AutoSaveExample(OutputJob):
         sum_of_nums = sum(list(range(1, number)))
         self.log.info('Summation of %s is %s', number, sum_of_nums)
         self.context.stats['test_stat'] += 1
-        if random.randint(0, 5000) == 5:
-            raise Exception('Test exception')
+        try:
+            if random.randint(0, 700) == 5:
+                raise Exception('Test exception')
+        except:
+            self.diag_save(sum_of_nums, number)
         return sum_of_nums
 
 
 manager = JobManager()
 manager.context.data.register_cache('output', set(), 'output/output.txt')
-job = AutoSaveExample('output', input_data=10000, max_concurrent=15)
+job = AutoSaveExample('output', input_data=5000, max_concurrent=15)
 
 manager.add_jobs(job)
 manager.start()

@@ -385,6 +385,18 @@ class Job(abc.ABC):
     def get_data(self, name):
         return self.data.get(name)
 
+    def diag_save(self, content, input_data, name=None, ext='.json',
+                  extras=None):
+        """
+        Save useful diagnostic information
+        """
+        name = name or str(time()).replace('.', '')
+        json = dict(content=content, input_data=input_data,
+                    extras=extras or {}, timestamp=time())
+        path = f'./diagnostics/{self.name}/{name}{ext}'
+        self.data.register(name, json, path, False, False)
+        self.log.debug('saved diagnostic info for %s -> %s' % input_data, path)
+
     def __repr__(self):
         return self.name
 
