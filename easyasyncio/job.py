@@ -78,7 +78,6 @@ class Job(abc.ABC):
                                        else max_queue_size)
         self.info['max_workers'] = max_concurrent
         self.info['workers'] = 0
-        self._status = ''
         self.logs: deque[str] = deque(maxlen=50)
         self.log = logging.getLogger(self.name)
         self.with_errors = False
@@ -152,6 +151,7 @@ class Job(abc.ABC):
         self.context.queues.new(self.name, self._queue_size)
         self.log.addHandler(JobLogHandler(self, level=self.log_level))
         self.status('initialized')
+        self.log.info('loading cached items...')
         if self.cache_enabled:
             if self.cache_finished_items:
                 context.data.register_job_cache(self, set(), self.cache_name)
@@ -259,8 +259,6 @@ class Job(abc.ABC):
         except KeyError:
             pass
         if result is None: return
-        self.decache(input_data, self.queue_cache)
-        self.cache(input_data, self.completed_cache)
         if result is not False:  # success
             # only use post-processing if the result is not a boolean
             self.cache(input_data, self.success_cache)
@@ -269,6 +267,8 @@ class Job(abc.ABC):
             if isinstance(result, (list, set, dict)):
                 self.increment_stat(len(result), self.result_name)
             else: self.increment_stat(name=self.result_name)
+            self.decache(input_data, self.queue_cache)
+            self.cache(input_data, self.completed_cache)
         else:  # failure
             self.failed_inputs.add(input_data)
             self.increment_stat(name='failed')
@@ -327,9 +327,11 @@ class Job(abc.ABC):
                 obj, str)):
             for o in obj:
                 await self.on_item_completed(o)
+                await asyncio.sleep(0)
         elif isinstance(obj, MutableMapping):
             for t in obj.items():
                 await self.on_item_completed(t)
+                await asyncio.sleep(0)
         else:
             await self.on_item_completed(obj)
 
@@ -395,7 +397,8 @@ class Job(abc.ABC):
                     extras=extras or {}, timestamp=time())
         path = f'./diagnostics/{self.name}/{name}{ext}'
         self.data.register(name, json, path, False, False)
-        self.log.debug('saved diagnostic info for %s -> %s' % input_data, path)
+        self.log.debug(
+                'saved diagnostic info for %s -> %s' % (input_data, path))
 
     def __repr__(self):
         return self.name
