@@ -27,6 +27,6 @@ async def test_registration():
 
 @pytest.mark.asyncio
 async def test_loading():
-    data.register('csv', list(), './testfiles/test.csv')
+    data.register('csv', [], './testfiles/test.csv')
     load = data.get('csv')
     assert 'test0,data0,row0' in load

@@ -196,7 +196,7 @@ class WorkerDetails(widgets.Frame):
             self.selected_total = False
             return
 
-        elif self.selected.value == len(self.selected.options) - 1:
+        if self.selected.value == len(self.selected.options) - 1:
             self.worker = None
             self.selected_total = True
 

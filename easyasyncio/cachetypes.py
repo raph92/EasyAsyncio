@@ -4,7 +4,7 @@ from typing import Iterable, Hashable
 from diskcache import Index
 
 
-class CacheSet(Iterable):
+class CacheSet:
     """
     A Set-like Cache that wraps :class:`diskcache.Index`
     """

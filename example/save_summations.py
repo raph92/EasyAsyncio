@@ -39,7 +39,7 @@ manager = JobManager()
 manager.context.data.register_cache('output', set(), 'output/output.txt')
 job = AutoSaveExample('output', input_data=5000, max_concurrent=15)
 
-manager.add_jobs(job)
+manager.add_jobs(1)
 manager.start()
 #
 # manager.start_graphics()

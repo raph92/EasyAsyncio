@@ -33,8 +33,8 @@ class DataManager(UserDict):
     filemanager = FileManager()
     directory = '.'
     do_not_display = []  # data items not to show in StatDisplay
-    save_kwargs: 'Dict[str, Dict]' = dict()
-    load_kwargs: 'Dict[str, Dict]' = dict()
+    save_kwargs: 'Dict[str, Dict]' = {}
+    load_kwargs: 'Dict[str, Dict]' = {}
 
     def __init__(self, *args, **kwargs: dict) -> None:
         super().__init__(*args, **kwargs)
@@ -141,10 +141,10 @@ class DataManager(UserDict):
             self[name] = CacheSet(loaded_data or set(), path)
             self.logger.debug('creating new CacheSet for %s', name)
         elif isinstance(initial_data, list):
-            self[name] = Deque(loaded_data or list(), path)
+            self[name] = Deque(loaded_data or [], path)
             self.logger.debug('creating new Deque for %s', name)
         elif isinstance(initial_data, dict):
-            self[name] = Index(path, **(loaded_data or dict()))
+            self[name] = Index(path, **(loaded_data or {}))
             self.logger.debug('creating new Index for %s', name)
 
     def load(self, data, loaded_data, name):

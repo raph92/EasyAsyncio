@@ -55,8 +55,7 @@ class PrintJob(Job):
 manager = JobManager()
 
 consumer = PrintJob(max_concurrent=15,
-                    max_queue_size=5,
-                    caching=False)
+                    max_queue_size=5)
 producer = QueueJob(consumer,
                     input_data=100,
                     max_concurrent=15,

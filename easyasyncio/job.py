@@ -73,7 +73,7 @@ class Job(abc.ABC):
         self.max_concurrent = max_concurrent
         self.stats = Counter()
         self.tasks = set()
-        self.info: Dict[str, Any] = dict()
+        self.info: Dict[str, Any] = {}
         self.info['max_queue_size'] = ('infinite' if max_queue_size == 0
                                        else max_queue_size)
         self.info['max_workers'] = max_concurrent
@@ -237,7 +237,7 @@ class Job(abc.ABC):
             except ServerDisconnectedError:
                 self.log.error('server disconnected')
                 await self.queue.put(queued_data)
-            except Exception as e:
+            except Exception:
                 self.increment_stat(name='exceptions')
                 self.log.error('worker uncaught exception', exc_info=1,
                                extra=dict(queued_data=queued_data))
@@ -337,7 +337,7 @@ class Job(abc.ABC):
 
     async def on_item_completed(self, obj):
         """Called after post-processing is finished"""
-        self.log.info('obj')
+        self.log.info(obj)
 
     async def on_finish(self):
         """Called when all tasks are finished"""
@@ -371,7 +371,8 @@ class Job(abc.ABC):
         Returns: all objects from **items** which have not yet been
         cached/processed
         """
-        assert self.cache_finished_items
+        if not self.cache_finished_items:
+            raise Exception('An attempt to access a disabled cache was made.')
         return set(items).difference(set(self.completed_cache)) or set()
 
     def status(self, *strings: str):

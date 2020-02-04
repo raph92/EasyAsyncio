@@ -15,7 +15,8 @@ logger = logging.getLogger('decache')
 
 
 def _load(cache_file) -> Union[dict, list]:
-    assert exists(cache_file)
+    if not exists(cache_file):
+        raise FileNotFoundError('Cache file not found', cache_file)
     try:
         deque = diskcache.Deque([], cache_file)
     except OperationalError:
@@ -30,7 +31,8 @@ def _load(cache_file) -> Union[dict, list]:
         index = diskcache.Index(cache_set.index)
         # make sure we are dealing with a CacheSet and not just an Index
         pop = list_[0]
-        assert index[cache_set._hash(pop)] == pop
+        if index[cache_set._hash(pop)] != pop:
+            raise TypeError('The provided cache is not a CacheSet', cache_set)
     except OperationalError:
         pass
     except Exception as e:
@@ -55,7 +57,7 @@ def core(cache_file: str, output: str):
     try:
         cache_file = cache_file.replace('cache.db', '')
         data = _load(cache_file)
-    except Exception as e:
+    except Exception:
         click.echo('Error loading cache file')
         raise
     else:
