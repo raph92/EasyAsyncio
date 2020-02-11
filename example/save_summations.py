@@ -1,3 +1,4 @@
+import asyncio
 import os
 import random
 import sys
@@ -32,14 +33,19 @@ class AutoSaveExample(OutputJob):
                 raise Exception('Test exception')
         except:
             self.diag_save(sum_of_nums, number)
+        if random.randint(0, 5) == 5:
+            randint = random.randint(5001, 10000)
+            self.log.info('adding %s to queue', randint)
+            await self.queue.put(randint)
+        await asyncio.sleep(0)
         return sum_of_nums
 
 
 manager = JobManager()
 manager.context.data.register_cache('output', set(), 'output/output.txt')
-job = AutoSaveExample('output', input_data=5000, max_concurrent=15)
+job = AutoSaveExample('output', input_data=1000, max_concurrent=15)
 
-manager.add_jobs(1)
+manager.add_jobs(job)
 manager.start()
 #
 # manager.start_graphics()

@@ -267,11 +267,11 @@ class Job(abc.ABC):
             if isinstance(result, (list, set, dict)):
                 self.increment_stat(len(result), self.result_name)
             else: self.increment_stat(name=self.result_name)
-            self.decache(input_data, self.queue_cache)
-            self.cache(input_data, self.completed_cache)
         else:  # failure
             self.failed_inputs.add(input_data)
             self.increment_stat(name='failed')
+        self.decache(input_data, self.queue_cache)
+        self.cache(input_data, self.completed_cache)
 
     def cache(self, data: object, cache: CacheSet):
         if not self.cache_enabled:

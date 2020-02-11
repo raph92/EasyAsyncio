@@ -20,7 +20,6 @@ class Context:
     save_thread: 'AutoSave' = None
     stats_thread: 'StatsDisplay' = None
     session: ClientSession = None
-
     data = DataManager()
 
     def __init__(self, job_manager: 'JobManager') -> None:
