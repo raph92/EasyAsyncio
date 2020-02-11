@@ -43,7 +43,8 @@ class Job(abc.ABC):
                  auto_add_results=True,
                  queue_cache_name='resume',
                  product_name='successes',
-                 log_level=logging.INFO) -> None:
+                 log_level=logging.INFO,
+                 auto_requeue=True) -> None:
         """
 
         Args:
@@ -64,6 +65,8 @@ class Job(abc.ABC):
                 should also be cached for resuming when the Job is restarted
             queue_cache_name (str): The name to save the queue_cache as
             product_name (str): The item that this job produces
+            auto_requeue (bool): Automatically re-add certain failed items
+                back into queue
         See Also: :class:`OutputJob` :class:`ForwardQueuingJob`
             :class:`BackwardQueuingJob`
         """
@@ -93,6 +96,7 @@ class Job(abc.ABC):
             self.use_resume = False
         self.continuous = continuous
         self.result_name = product_name
+        self.auto_requeue = True
 
     @property
     def queue(self) -> Queue:
@@ -258,7 +262,11 @@ class Job(abc.ABC):
             self.failed_inputs.remove(input_data)
         except KeyError:
             pass
-        if result is None: return
+        if result is None:
+            if self.auto_requeue:
+                await self.queue.put(input_data)
+                self.increment_stat(name='re-queued')
+            return
         if result is not False:  # success
             # only use post-processing if the result is not a boolean
             self.cache(input_data, self.success_cache)
@@ -270,6 +278,7 @@ class Job(abc.ABC):
         else:  # failure
             self.failed_inputs.add(input_data)
             self.increment_stat(name='failed')
+
         self.decache(input_data, self.queue_cache)
         self.cache(input_data, self.completed_cache)
 
