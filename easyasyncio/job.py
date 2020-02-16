@@ -45,7 +45,8 @@ class Job(abc.ABC):
                  product_name='successes',
                  log_level=logging.INFO,
                  auto_requeue=True,
-                 exit_on_queue_finish=True) -> None:
+                 exit_on_queue_finish=True,
+                 skip_completed=True) -> None:
         """
 
         Args:
@@ -70,6 +71,7 @@ class Job(abc.ABC):
                 back into queue
             exit_on_queue_finish (bool): Exit when self.queue_finished is
                 called
+            skip_completed (bool): Skip items from queue that are in the completed_cache
         See Also: :class:`OutputJob` :class:`ForwardQueuingJob`
             :class:`BackwardQueuingJob`
         """
@@ -102,6 +104,7 @@ class Job(abc.ABC):
         self.result_name = product_name
         self.auto_requeue = auto_requeue
         self.exit_on_queue_finish = exit_on_queue_finish
+        self.skip_completed = skip_completed
 
     @property
     def queue(self) -> Queue:
@@ -234,7 +237,7 @@ class Job(abc.ABC):
                 if not self.exit_on_queue_finish:
                     continue
                 break
-            if (self.cache_finished_items and
+            if (self.cache_finished_items and self.skip_completed and
                     queued_data in self.completed_cache):
                 self.increment_stat(name='skipped')
                 continue
@@ -273,7 +276,7 @@ class Job(abc.ABC):
         if result is None:
             if self.auto_requeue:
                 await self.queue.put(input_data)
-                self.increment_stat(name='re-queued')
+                self.increment_stat(name='requeued')
             return
         if result is not False:  # success
             # only use post-processing if the result is not a boolean
@@ -345,10 +348,12 @@ class Job(abc.ABC):
             for o in obj:
                 await self.on_item_completed(o)
                 await asyncio.sleep(0)
+            self.log.debug('finished postprocessing %s items', len(obj))
         elif isinstance(obj, MutableMapping):
             for t in obj.items():
                 await self.on_item_completed(t)
                 await asyncio.sleep(0)
+            self.log.debug('finished postprocessing %s items', len(obj))
         else:
             await self.on_item_completed(obj)
 
@@ -373,6 +378,12 @@ class Job(abc.ABC):
             except QueueFull:
                 while not self.queue.empty():
                     await self.queue.get()
+
+    async def requeue(self, obj, reason=''):
+        await self.queue.put(obj)
+        if 'requeued' not in self.info:
+            self.info['requeued'] = Counter()
+        self.info.get('requeued')[reason or 'unspecified'] += 1
 
     def increment_stat(self, n=1, name: str = None) -> None:
         """increment the count of whatever this Job is processing"""
