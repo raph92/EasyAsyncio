@@ -44,7 +44,8 @@ class Job(abc.ABC):
                  queue_cache_name='resume',
                  product_name='successes',
                  log_level=logging.INFO,
-                 auto_requeue=True) -> None:
+                 auto_requeue=True,
+                 exit_on_queue_finish=False) -> None:
         """
 
         Args:
@@ -67,6 +68,8 @@ class Job(abc.ABC):
             product_name (str): The item that this job produces
             auto_requeue (bool): Automatically re-add certain failed items
                 back into queue
+            exit_on_queue_finish (bool): Exit when self.queue_finished is
+                called
         See Also: :class:`OutputJob` :class:`ForwardQueuingJob`
             :class:`BackwardQueuingJob`
         """
@@ -76,11 +79,12 @@ class Job(abc.ABC):
         self.max_concurrent = max_concurrent
         self.stats = Counter()
         self.tasks = set()
-        self.info: Dict[str, Any] = {}
-        self.info['max_queue_size'] = ('infinite' if max_queue_size == 0
-                                       else max_queue_size)
-        self.info['max_workers'] = max_concurrent
-        self.info['workers'] = 0
+        self.info: Dict[str, Any] = {
+                'max_queue_size': ('infinite' if max_queue_size == 0
+                                   else max_queue_size),
+                'max_workers':    max_concurrent,
+                'workers':        0
+        }
         self.logs: deque[str] = deque(maxlen=50)
         self.log = logging.getLogger(self.name)
         self.with_errors = False
@@ -96,7 +100,8 @@ class Job(abc.ABC):
             self.use_resume = False
         self.continuous = continuous
         self.result_name = product_name
-        self.auto_requeue = True
+        self.auto_requeue = auto_requeue
+        self.exit_on_queue_finish = exit_on_queue_finish
 
     @property
     def queue(self) -> Queue:
@@ -225,7 +230,10 @@ class Job(abc.ABC):
         self.log.debug('[worker%s] started', num)
         while self.context.running:
             queued_data = await self.queue.get()
-            if queued_data is False: break
+            if queued_data is False:
+                if not self.exit_on_queue_finish:
+                    continue
+                break
             if (self.cache_finished_items and
                     queued_data in self.completed_cache):
                 self.increment_stat(name='skipped')

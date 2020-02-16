@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
         name='easyasyncio',
-        version='11.4.0',
+        version='11.5.0',
         packages=['easyasyncio'],
         url='https://github.com/RaphaelNanje/easyasyncio.git',
         license='MIT',
