@@ -45,7 +45,7 @@ class Job(abc.ABC):
                  product_name='successes',
                  log_level=logging.INFO,
                  auto_requeue=True,
-                 exit_on_queue_finish=False) -> None:
+                 exit_on_queue_finish=True) -> None:
         """
 
         Args:
