@@ -46,7 +46,8 @@ class Job(abc.ABC):
                  log_level=logging.INFO,
                  auto_requeue=True,
                  exit_on_queue_finish=True,
-                 skip_completed=True) -> None:
+                 skip_completed=True,
+                 uncache_completed=True) -> None:
         """
 
         Args:
@@ -71,7 +72,9 @@ class Job(abc.ABC):
                 back into queue
             exit_on_queue_finish (bool): Exit when self.queue_finished is
                 called
-            skip_completed (bool): Skip items from queue that are in the completed_cache
+            skip_completed (bool): Skip items from queue that are in the
+                completed_cache
+            uncache_completed (bool): Remove processed items from queue_cache
         See Also: :class:`OutputJob` :class:`ForwardQueuingJob`
             :class:`BackwardQueuingJob`
         """
@@ -105,6 +108,7 @@ class Job(abc.ABC):
         self.auto_requeue = auto_requeue
         self.exit_on_queue_finish = exit_on_queue_finish
         self.skip_completed = skip_completed
+        self.uncache_completed = uncache_completed
 
     @property
     def queue(self) -> Queue:
@@ -311,7 +315,8 @@ class Job(abc.ABC):
                 self.success_cache.remove(data)
             elif self.cache_finished_items and cache == self.completed_cache:
                 self.completed_cache.remove(data)
-            elif self.use_resume and cache == self.queue_cache:
+            elif (self.use_resume and cache == self.queue_cache
+                  and self.uncache_completed):
                 self.queue_cache.remove(data)
         except KeyError:
             pass
