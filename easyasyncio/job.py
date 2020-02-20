@@ -6,7 +6,7 @@ from asyncio import (AbstractEventLoop, Semaphore, Future, Queue,
                      QueueFull, CancelledError)
 from collections import deque, Counter
 from time import time
-from typing import (Set, Any, MutableMapping, Union, TYPE_CHECKING, Dict,
+from typing import (Set, Any, MutableMapping, TYPE_CHECKING, Dict,
                     Optional)
 
 from aiohttp import ServerDisconnectedError
@@ -14,6 +14,7 @@ from diskcache import Deque, Index
 
 from .cachetypes import CacheSet
 from .context import Context
+from .helper import hash
 
 if TYPE_CHECKING:
     from . import DataManager
@@ -27,7 +28,6 @@ class Job(abc.ABC):
     sem: Semaphore
     end_time: float
     input_data: Any
-    success_cache_name = 'success'
     fail_cache_name = 'failed'
     data: 'DataManager'
 
@@ -36,7 +36,6 @@ class Job(abc.ABC):
                  max_concurrent=20,
                  max_queue_size=0,
                  cache_name='completed',
-                 cache_finished_items=True,
                  continuous=False,
                  cache_queued_items=False,
                  enable_cache=True,
@@ -95,13 +94,11 @@ class Job(abc.ABC):
         self.with_errors = False
         self.running = False
         self._queue_size = max_queue_size
-        self.cache_finished_items = cache_finished_items
         self.cache_name = cache_name
         self.use_resume = cache_queued_items
         self.queue_cache_name = queue_cache_name
         self.cache_enabled = enable_cache
         if not enable_cache:
-            self.cache_finished_items = False
             self.use_resume = False
         self.continuous = continuous
         self.result_name = product_name
@@ -115,14 +112,6 @@ class Job(abc.ABC):
         return self.context.queues.get(self.name)
 
     @property
-    def completed_cache(self) -> CacheSet:
-        """
-        A cache built for avoiding duplicates.
-        All processed items from the queue will be added here
-        """
-        return self.data.get_job_cache(self, self.cache_name)
-
-    @property
     def queue_cache(self) -> CacheSet:
         """
         A cache built for resuming any progress made when any Job is
@@ -130,15 +119,6 @@ class Job(abc.ABC):
         items that are not in **self.completed_cache**
         """
         return self.data.get_job_cache(self, self.queue_cache_name)
-
-    @property
-    def success_cache(self) -> CacheSet:
-        """
-        A cache built for resuming any progress made when any Job is
-        restarted. This cache will store all of the queued item that
-        successfully returned a value that is not **False** or **None**
-        """
-        return self.data.get_job_cache(self, self.success_cache_name)
 
     @property
     def failed_inputs(self) -> CacheSet:
@@ -169,13 +149,12 @@ class Job(abc.ABC):
         self.status('initialized')
         self.log.info('loading cached items...')
         if self.cache_enabled:
-            if self.cache_finished_items:
-                context.data.register_job_cache(self, set(), self.cache_name)
+            context.data.register_job_cache(self, dict(), self.cache_name)
             if self.use_resume:
                 context.data.register_job_cache(self, set(),
                                                 self.queue_cache_name)
-            context.data.register_job_cache(self, set(),
-                                            self.success_cache_name)
+            # context.data.register_job_cache(self, set(),
+            #                                 self.success_cache_name)
         self.data.register_cache('%s.failed' % self.name, set(),
                                  './data/failed/%s.txt' % self.name)
 
@@ -236,20 +215,19 @@ class Job(abc.ABC):
         self.info['workers'] += 1
         self.log.debug('[worker%s] started', num)
         while self.context.running:
+            result = None
             queued_data = await self.queue.get()
             if queued_data is False:
                 if not self.exit_on_queue_finish:
                     continue
                 break
-            if (self.cache_finished_items and self.skip_completed and
-                    queued_data in self.completed_cache):
-                self.increment_stat(name='skipped')
-                continue
+            if self.cache_enabled:
+                result = self.deindex(queued_data)
 
             self.log.debug('[worker%s] retrieved queued data "%s"',
                            num, queued_data)
             try:
-                result = await self.do_work(queued_data)
+                result = result or await self.do_work(queued_data)
             except CancelledError:
                 self.log.debug('work on %s has been cancelled', queued_data)
                 break
@@ -260,7 +238,7 @@ class Job(abc.ABC):
                 self.increment_stat(name='exceptions')
                 self.log.error('worker uncaught exception', exc_info=1,
                                extra=dict(queued_data=queued_data))
-                await self.queue.put(queued_data)
+                await self.add_to_queue(queued_data)
                 self.failed_inputs.add(queued_data)
                 self.with_errors = True
             else:
@@ -284,7 +262,8 @@ class Job(abc.ABC):
             return
         if result is not False:  # success
             # only use post-processing if the result is not a boolean
-            self.cache(input_data, self.success_cache)
+            if self.cache_enabled:
+                self.index(input_data, result)
             if result is not True and self.auto_add_results:
                 await self._post_process(result)
             if isinstance(result, (list, set, dict)):
@@ -293,30 +272,21 @@ class Job(abc.ABC):
         else:  # failure
             self.failed_inputs.add(input_data)
             self.increment_stat(name='failed')
-
         self.decache(input_data, self.queue_cache)
-        self.cache(input_data, self.completed_cache)
+        # self.cache(input_data, self.completed_cache)
 
     def cache(self, data: object, cache: CacheSet):
         if not self.cache_enabled:
             return
-        if cache is self.success_cache:
-            self.success_cache.add(data)
-        elif self.cache_finished_items and cache == self.completed_cache:
-            self.completed_cache.add(data)
-        elif self.use_resume and cache == self.queue_cache:
+        if self.use_resume and cache == self.queue_cache:
             self.queue_cache.add(data)
 
     def decache(self, data: object, cache: CacheSet):
         if not self.cache_enabled:
             return
         try:
-            if cache is self.success_cache:
-                self.success_cache.remove(data)
-            elif self.cache_finished_items and cache == self.completed_cache:
-                self.completed_cache.remove(data)
-            elif (self.use_resume and cache == self.queue_cache
-                  and self.uncache_completed):
+            if (self.use_resume and cache == self.queue_cache
+                    and self.uncache_completed):
                 self.queue_cache.remove(data)
         except KeyError:
             pass
@@ -384,6 +354,15 @@ class Job(abc.ABC):
                 while not self.queue.empty():
                     await self.queue.get()
 
+    async def add_to_queue(self, obj):
+        optional = await self.queue_filter(obj)
+        if optional:
+            await self.queue.put(optional)
+
+    async def queue_filter(self, obj):
+        """All items added to the queue must fulfil this requirement"""
+        return obj
+
     async def requeue(self, obj, reason=''):
         await self.queue.put(obj)
         if 'requeued' not in self.info:
@@ -395,18 +374,6 @@ class Job(abc.ABC):
         if not name:
             name = self.result_name
         self.stats[name] += n
-
-    def get_uncached(self, items: Union[list, set, CacheSet, Deque, range]):
-        """
-        Args:
-            items: A collection of items to be processed
-
-        Returns: all objects from **items** which have not yet been
-        cached/processed
-        """
-        if not self.cache_finished_items:
-            raise Exception('An attempt to access a disabled cache was made.')
-        return set(items).difference(set(self.completed_cache)) or set()
 
     def status(self, *strings: str):
         status = ' '.join(
@@ -440,6 +407,14 @@ class Job(abc.ABC):
     def __str__(self):
         return self.name
 
+    def index(self, input_data, result):
+        hash_id = hash(input_data)
+        self.data.get_job_cache(self, self.cache_name)[hash_id] = result
+
+    def deindex(self, input_data):
+        hash_id = hash(input_data)
+        return self.data.get_job_cache(self, self.cache_name).get(hash_id)
+
 
 class ForwardQueuingJob(Job, abc.ABC):
     """
@@ -463,7 +438,7 @@ class ForwardQueuingJob(Job, abc.ABC):
         await self.queue_successor(obj)
 
     async def queue_successor(self, data):
-        await self.successor.queue.put(data)
+        await self.successor.add_to_queue(data)
         if self.successor.use_resume:
             self.successor.queue_cache.add(data)
 
@@ -506,7 +481,7 @@ class OutputJob(Job, abc.ABC):
 
     def __init__(self, output: Optional[str] = '', **kwargs) -> None:
         self.output = output
-        super().__init__(cache_queued_items=True, **kwargs)
+        super().__init__(**kwargs)
 
     async def on_item_completed(self, o):
         if not self.output:

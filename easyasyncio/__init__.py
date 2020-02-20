@@ -12,7 +12,7 @@ from .jobmanager import JobManager
 from .queuemanager import QueueManager
 from .stats import Stats
 from .cachetypes import CacheSet
-
+from . import helper
 __all__ = [
         'Context',
         'JobManager',
@@ -23,5 +23,6 @@ __all__ = [
         'Constants',
         'Stats',
         'AutoSave',
-        'logger'
+        'logger',
+        'helper'
 ]
