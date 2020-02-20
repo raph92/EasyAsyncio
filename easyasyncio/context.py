@@ -1,4 +1,3 @@
-from asyncio import AbstractEventLoop
 from typing import TYPE_CHECKING, Set
 
 from aiohttp import ClientSession
@@ -6,35 +5,38 @@ from aiohttp import ClientSession
 from .autosave import AutoSave
 from .datamanager import DataManager
 from .queuemanager import QueueManager
-from .settings import Settings
 from .stats import Stats, StatsDisplay
 
 if TYPE_CHECKING:
-    from .loopmanager import LoopManager
-    from .abstractasyncworker import AbstractAsyncWorker
+    from .jobmanager import JobManager
+    from .job import Job
 
 
 class Context:
-    """The purpose of this class is to access all important objects from one place"""
-    settings = Settings()
+    """The purpose of this class is to access all important
+    objects from one place"""
     queues: QueueManager
-    loop: AbstractEventLoop
-    workers: 'Set[AbstractAsyncWorker]' = set()
+    jobs: 'Set[Job]' = set()
     save_thread: 'AutoSave' = None
     stats_thread: 'StatsDisplay' = None
-    loop_manager: 'LoopManager'
-    session: ClientSession
-
+    session: ClientSession = None
     data = DataManager()
 
-    def __init__(self, loop_manager) -> None:
+    def __init__(self, job_manager: 'JobManager') -> None:
         self.stats = Stats(self)
-        self.loop_manager = loop_manager
-        self.loop = self.loop_manager.loop
+        self.manager = job_manager
         self.queues = QueueManager(self)
         self.save_thread = AutoSave(self)
         self.stats_thread = StatsDisplay(self)
 
     @property
     def running(self):
-        return self.loop_manager.running
+        return not self.loop_manager.closing
+
+    @property
+    def loop(self):
+        return self.loop_manager.loop
+
+    @property
+    def loop_manager(self):
+        return self.manager

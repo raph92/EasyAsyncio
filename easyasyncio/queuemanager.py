@@ -1,8 +1,7 @@
+import logging
 from asyncio import Queue
 from collections import UserDict
-from typing import TYPE_CHECKING
-
-from . import logger
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .context import Context
@@ -11,16 +10,17 @@ if TYPE_CHECKING:
 class QueueManager(UserDict):
     """easy access queues for all producers and consumers"""
 
-    def __init__(self, context: 'Context', **kwargs: dict):
-        super().__init__(**kwargs)
+    def __init__(self, context: 'Context'):
+        super().__init__()
         self.context = context
+        self.logger = logging.getLogger(type(self).__name__)
 
-    def __getitem__(self, key: str) -> 'Queue':
+    def __getitem__(self, key: str) -> 'Queue[Any]':
         if key not in self:
-            self[key] = Queue()
+            self[key] = Queue(loop=self.context.loop)
         return super().__getitem__(key)
 
-    def new(self, name):
-        logger.info('Creating new queue: %s...', name)
-        self[name] = Queue()
+    def new(self, name: str, maxsize=0) -> 'Queue[Any]':
+        self.logger.debug('Creating new queue: %s...', name)
+        self[name] = Queue(maxsize=maxsize, loop=self.context.loop)
         return self[name]

@@ -127,3 +127,13 @@ dmypy.json
 
 /venv37/
 /.idea/
+/venv36/
+/example/numbers/
+/numbers/
+/example/logs/
+testfiles/
+/venv-dev/
+/mypyerrors
+cache.db*
+output*
+/pypy-env/

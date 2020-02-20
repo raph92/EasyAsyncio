@@ -1,27 +1,28 @@
-from logzero import setup_logger
+import logging
 
-logger = setup_logger(name='EasyAsyncio')
-from .context import Context
-from .loopmanager import LoopManager
-from .abstractasyncworker import AbstractAsyncWorker
-from .producer import Producer
-from .consumer import Consumer
-from .queuemanager import QueueManager
-from .datamanager import DataManager
-from .constants import Constants
-from .stats import Stats
+logger = logging.getLogger('easyasyncio')
+
+from . import log
+from .job import Job
 from .autosave import AutoSave
-
+from .constants import Constants
+from .context import Context
+from .datamanager import DataManager
+from .jobmanager import JobManager
+from .queuemanager import QueueManager
+from .stats import Stats
+from .cachetypes import CacheSet
+from . import helper
 __all__ = [
-    'Context',
-    'LoopManager',
-    'AbstractAsyncWorker',
-    'Producer',
-    'Consumer',
-    'QueueManager',
-    'DataManager',
-    'Constants',
-    'Stats',
-    'AutoSave',
-    'logger',
+        'Context',
+        'JobManager',
+        'Job',
+        'QueueManager',
+        'DataManager',
+        'CacheSet',
+        'Constants',
+        'Stats',
+        'AutoSave',
+        'logger',
+        'helper'
 ]

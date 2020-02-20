@@ -1,10 +1,12 @@
 import asyncio
-import random
+from random import random
 
-from easyasyncio import Producer, LoopManager
+import pytest
+
+from easyasyncio import Producer, JobManager
 
 
-class PrintNumbersProducer(Producer):
+class ProducerTest(Producer):
     """print numbers asynchronously"""
 
     def __init__(self, data: int, **kwargs):
@@ -12,16 +14,16 @@ class PrintNumbersProducer(Producer):
 
     async def fill_queue(self):
         """override this abstract method to fill the queue"""
-        for i in range(0, self.data):
+        for i in range(0, self.input_data):
             await self.queue.put(i)
 
-    async def work(self, number):
+    async def do_work(self, number):
         """
         This logic here will be applied to every item in the queue
         """
         sleep_time = random.randint(1, 3)
         await asyncio.sleep(sleep_time)
-        self.logger.info(number)
+        self.logger(number)
         self.increment_stat()
 
     @property
@@ -33,8 +35,10 @@ class PrintNumbersProducer(Producer):
         return 'print_number'
 
 
-# set autosave to false since we are not saving anything
-manager = LoopManager(False)
-
-manager.add_tasks(PrintNumbersProducer(1000, max_concurrent=15))
-manager.start()
+@pytest.mark.asyncio
+async def test_queue():
+    manager = JobManager(False)
+    producer = ProducerTest(10)
+    manager.add_jobs(producer)
+    await producer.fill_queue()
+    assert producer.queue.qsize() == 10
