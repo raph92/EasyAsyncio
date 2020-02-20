@@ -44,9 +44,7 @@ class Job(abc.ABC):
                  product_name='successes',
                  log_level=logging.INFO,
                  auto_requeue=True,
-                 exit_on_queue_finish=True,
-                 skip_completed=True,
-                 uncache_completed=True) -> None:
+                 exit_on_queue_finish=True) -> None:
         """
 
         Args:
@@ -55,10 +53,6 @@ class Job(abc.ABC):
                 from a file
             max_concurrent (int): The maximum number of workers
             max_queue_size (int): The maximum items the queue can hold at once
-
-            cache_finished_items (bool): Whether or not this Job should cache
-                finished items automatically. This will prevent the program
-                from working on the same items multiple times
             cache_name (str): The name of the cache to save completed data to.
                 This will default to **self.name**
             continuous (bool): Whether the predecessor of this Job should end
@@ -71,9 +65,6 @@ class Job(abc.ABC):
                 back into queue
             exit_on_queue_finish (bool): Exit when self.queue_finished is
                 called
-            skip_completed (bool): Skip items from queue that are in the
-                completed_cache
-            uncache_completed (bool): Remove processed items from queue_cache
         See Also: :class:`OutputJob` :class:`ForwardQueuingJob`
             :class:`BackwardQueuingJob`
         """
@@ -104,8 +95,6 @@ class Job(abc.ABC):
         self.result_name = product_name
         self.auto_requeue = auto_requeue
         self.exit_on_queue_finish = exit_on_queue_finish
-        self.skip_completed = skip_completed
-        self.uncache_completed = uncache_completed
 
     @property
     def queue(self) -> Queue:
@@ -272,24 +261,7 @@ class Job(abc.ABC):
         else:  # failure
             self.failed_inputs.add(input_data)
             self.increment_stat(name='failed')
-        self.decache(input_data, self.queue_cache)
         # self.cache(input_data, self.completed_cache)
-
-    def cache(self, data: object, cache: CacheSet):
-        if not self.cache_enabled:
-            return
-        if self.use_resume and cache == self.queue_cache:
-            self.queue_cache.add(data)
-
-    def decache(self, data: object, cache: CacheSet):
-        if not self.cache_enabled:
-            return
-        try:
-            if (self.use_resume and cache == self.queue_cache
-                    and self.uncache_completed):
-                self.queue_cache.remove(data)
-        except KeyError:
-            pass
 
     @abstractmethod
     async def do_work(self, input_data) -> object:
@@ -359,6 +331,7 @@ class Job(abc.ABC):
         if optional:
             await self.queue.put(optional)
 
+    # noinspection PyMethodMayBeStatic
     async def queue_filter(self, obj):
         """All items added to the queue must fulfil this requirement"""
         return obj
@@ -368,6 +341,14 @@ class Job(abc.ABC):
         if 'requeued' not in self.info:
             self.info['requeued'] = Counter()
         self.info.get('requeued')[reason or 'unspecified'] += 1
+
+    def index(self, input_data, result):
+        hash_id = hash(input_data)
+        self.data.get_job_cache(self, self.cache_name)[hash_id] = result
+
+    def deindex(self, input_data):
+        hash_id = hash(input_data)
+        return self.data.get_job_cache(self, self.cache_name).get(hash_id)
 
     def increment_stat(self, n=1, name: str = None) -> None:
         """increment the count of whatever this Job is processing"""
@@ -406,14 +387,6 @@ class Job(abc.ABC):
 
     def __str__(self):
         return self.name
-
-    def index(self, input_data, result):
-        hash_id = hash(input_data)
-        self.data.get_job_cache(self, self.cache_name)[hash_id] = result
-
-    def deindex(self, input_data):
-        hash_id = hash(input_data)
-        return self.data.get_job_cache(self, self.cache_name).get(hash_id)
 
 
 class ForwardQueuingJob(Job, abc.ABC):
