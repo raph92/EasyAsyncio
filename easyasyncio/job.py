@@ -96,6 +96,10 @@ class Job(abc.ABC):
         self.auto_requeue = auto_requeue
         self.exit_on_queue_finish = exit_on_queue_finish
 
+        self.queue_looped = False
+        self.predecessor: 'Optional[Job]' = None
+        self.successor: 'Optional[Job]' = None
+
     @property
     def queue(self) -> Queue:
         return self.context.queues.get(self.name)
@@ -161,7 +165,9 @@ class Job(abc.ABC):
             self.status('filling queue')
             self.log.debug('creating queue task...')
             queue_task = self.loop.create_task(self.fill_queue())
+            queue_watcher_task = self.loop.create_task(self.queue_watcher())
             self.tasks.add(queue_task)
+            self.tasks.add(queue_watcher_task)
             # process
             self.status('working')
             try:
@@ -204,18 +210,23 @@ class Job(abc.ABC):
         self.log.debug('[worker%s] started', num)
         while self.context.running:
             result = None
+            self.status('waiting on queue')
             queued_data = await self.queue.get()
+            self.status('working')
+            if isinstance(queued_data, QueueLooped):
+                self.queue_looped = True
+                continue
             if queued_data is False:
-                if not self.exit_on_queue_finish:
-                    continue
                 break
             if self.cache_enabled:
                 result = self.deindex(queued_data)
 
             self.log.debug('[worker%s] retrieved queued data "%s"',
                            num, queued_data)
+            # noinspection PyBroadException
             try:
-                result = result or await self.do_work(queued_data)
+                result = result if result is not None else await self.do_work(
+                        queued_data)
             except CancelledError:
                 self.log.debug('work on %s has been cancelled', queued_data)
                 break
@@ -224,8 +235,8 @@ class Job(abc.ABC):
                 await self.queue.put(queued_data)
             except Exception:
                 self.increment_stat(name='exceptions')
-                self.log.error('worker uncaught exception', exc_info=1,
-                               extra=dict(queued_data=queued_data))
+                self.log.exception('worker uncaught exception: %s',
+                                   dict(queued_data=queued_data))
                 await self.add_to_queue(queued_data)
                 self.failed_inputs.add(queued_data)
                 self.with_errors = True
@@ -260,7 +271,6 @@ class Job(abc.ABC):
         else:  # failure
             self.failed_inputs.add(input_data)
             self.increment_stat(name='failed')
-        # self.cache(input_data, self.completed_cache)
 
     @abstractmethod
     async def do_work(self, input_data) -> object:
@@ -315,19 +325,25 @@ class Job(abc.ABC):
         if self.with_errors:
             self.log.warning('Some errors occurred. See logs')
 
+    async def filled_queue(self):
+        self.log.debug('finished queueing')
+        await self.queue.put(QueueLooped())
+
     async def queue_finished(self):
         """Tells this Job to stop watching the queue and close"""
-        self.log.debug('finished queueing')
-        for _ in range(self.info['workers']):
+        for index in range(self.info['workers']):
             try:
-                await self.queue.put(False)
+                await self.add_to_queue(False)
             except QueueFull:
                 while not self.queue.empty():
                     await self.queue.get()
 
     async def add_to_queue(self, obj):
-        optional = await self.queue_filter(obj)
-        if optional:
+        if obj is False:
+            optional = obj
+        else:
+            optional = await self.queue_filter(obj)
+        if optional is not None:
             await self.queue.put(optional)
 
     # noinspection PyMethodMayBeStatic
@@ -381,6 +397,28 @@ class Job(abc.ABC):
         self.log.debug(
                 'saved diagnostic info for %s -> %s' % (input_data, path))
 
+    async def queue_watcher(self):
+        self.log.debug('starting queue watcher')
+        while self.context.running:
+            await asyncio.sleep(0.5)
+            if not self.queue_looped:
+                continue
+            if (not self.predecessor and not self.successor) and self.idle:
+                await self.queue_finished()
+                break
+            if ((self.predecessor and self.predecessor.idle)
+                    or (self.successor and self.successor.idle)):
+                await self.queue_finished()
+                break
+            if isinstance(self, (OutputJob, Job)) and self.idle:
+                await self.queue_finished()
+                break
+
+    @property
+    def idle(self):
+        return self.queue.qsize() == 0 and self.info.get(
+                'status') == 'waiting on queue'
+
     def __repr__(self):
         return self.name
 
@@ -404,6 +442,7 @@ class ForwardQueuingJob(Job, abc.ABC):
         super().__init__(**kwargs)
         self.successor = successor
         self.info['precedes'] = successor
+        successor.info['supersedes'] = self
         self.use_resume = False
 
     async def on_item_completed(self, obj):
@@ -414,10 +453,10 @@ class ForwardQueuingJob(Job, abc.ABC):
         if self.successor.use_resume:
             self.successor.queue_cache.add(data)
 
-    async def on_finish(self):
-        await super().on_finish()
-        if not self.continuous:
-            await self.successor.queue_finished()
+    async def filled_queue(self):
+        await super().filled_queue()
+        self.log.debug('adding QueueLooped() to successor')
+        await self.successor.queue.put(QueueLooped())
 
 
 class BackwardQueuingJob(Job, abc.ABC):
@@ -437,7 +476,7 @@ class BackwardQueuingJob(Job, abc.ABC):
         kwargs.setdefault('cache_queued_items', True)
         super().__init__(**kwargs)
         self.predecessor = predecessor
-        self.info['supersedes'] = predecessor.name
+        self.info['supersedes'] = predecessor
 
     async def on_item_completed(self, obj):
         await self.queue_predecessor(obj)
@@ -478,3 +517,7 @@ class JobLogHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         self.worker.logs.append(record.getMessage())
+
+
+class QueueLooped:
+    pass

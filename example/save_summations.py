@@ -20,7 +20,6 @@ class AutoSaveExample(OutputJob):
             self.log.info('queuing %s', i)
             await self.queue.put(i)
         self.log.info('calling queue_finished()')
-        await self.queue_finished()
 
     async def do_work(self, number):
         """this logic gets called after an object
@@ -37,7 +36,8 @@ class AutoSaveExample(OutputJob):
             randint = random.randint(5001, 10000)
             self.log.info('adding %s to queue', randint)
             await self.queue.put(randint)
-        await asyncio.sleep(0)
+            self.increment_stat(name='post-fill')
+        await asyncio.sleep(random.randint(0, 10))
         return sum_of_nums
 
 

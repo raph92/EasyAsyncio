@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import logging
 import random
 
 from easyasyncio import JobManager, Job
@@ -7,10 +8,14 @@ from easyasyncio.job import ForwardQueuingJob
 
 
 class QueueJob(ForwardQueuingJob):
+
+    def __init__(self, successor: Job, **kwargs) -> None:
+        super().__init__(successor, **kwargs)
+
     async def fill_queue(self):
         for i in range(self.input_data):
             await self.queue.put(i)
-        await self.queue_finished()
+        await self.filled_queue()
 
     async def do_work(self, num):
         # do something meaning full here
@@ -36,16 +41,17 @@ class PrintJob(Job):
         return number
 
     async def on_finish(self):
+        await super().on_finish()
         self.log.info('done at %s', datetime.datetime.now())
 
 
 manager = JobManager()
 
 consumer = PrintJob(max_concurrent=15,
-                    max_queue_size=5)
+                    max_queue_size=5, log_level=logging.DEBUG)
 producer = QueueJob(consumer,
                     input_data=100,
-                    max_concurrent=15)
+                    max_concurrent=15, log_level=logging.DEBUG)
 
 manager.add_jobs(producer, consumer)
 manager.start()
