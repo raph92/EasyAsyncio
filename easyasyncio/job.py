@@ -104,8 +104,7 @@ class Job(abc.ABC):
     def queue_cache(self) -> CacheSet:
         """
         A cache built for resuming any progress made when any Job is
-        restarted. On load, the program will queue all of the resume_cache
-        items that are not in **self.completed_cache**
+        restarted.
         """
         return self.data.get_job_cache(self, self.queue_cache_name)
 
