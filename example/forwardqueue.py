@@ -22,10 +22,6 @@ class QueueJob(ForwardQueuingJob):
         await super().on_finish()
         self.log.info('done at %s', datetime.datetime.now())
 
-    @property
-    def name(self):
-        return 'QueueNumJob'
-
 
 class PrintJob(Job):
     """print numbers asynchronously"""
@@ -42,15 +38,6 @@ class PrintJob(Job):
     async def on_finish(self):
         self.log.info('done at %s', datetime.datetime.now())
 
-    @property
-    def name(self):
-        """
-        Name the object or service being provided.
-        This will effect how the StatsDisplay displays information about
-        this Job.
-        """
-        return 'PrintNumJob'
-
 
 manager = JobManager()
 
@@ -58,10 +45,9 @@ consumer = PrintJob(max_concurrent=15,
                     max_queue_size=5)
 producer = QueueJob(consumer,
                     input_data=100,
-                    max_concurrent=15,
-                    caching=False)
+                    max_concurrent=15)
 
 manager.add_jobs(producer, consumer)
 manager.start()
 
-manager.start_graphics()
+# manager.start_graphics()

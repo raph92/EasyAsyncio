@@ -16,7 +16,7 @@ class AutoSaveExample(OutputJob):
 
     async def fill_queue(self):
         self.log.info('starting to queue')
-        for i in self.get_uncached(range(1, self.input_data + 1)):
+        for i in range(1, self.input_data + 1):
             self.log.info('queuing %s', i)
             await self.queue.put(i)
         self.log.info('calling queue_finished()')
@@ -43,7 +43,7 @@ class AutoSaveExample(OutputJob):
 
 manager = JobManager()
 manager.context.data.register_cache('output', set(), 'output/output.txt')
-job = AutoSaveExample('output', input_data=1000, max_concurrent=15)
+job = AutoSaveExample('output', input_data=3000, max_concurrent=15)
 
 manager.add_jobs(job)
 manager.start()
