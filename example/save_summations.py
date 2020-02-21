@@ -1,4 +1,3 @@
-import asyncio
 import os
 import random
 import sys
@@ -13,13 +12,6 @@ class AutoSaveExample(OutputJob):
     Gets all of the summations from 1 to `input_data` and saves the result
     to output.txt.
     """
-
-    async def fill_queue(self):
-        self.log.info('starting to queue')
-        for i in range(1, self.input_data + 1):
-            self.log.info('queuing %s', i)
-            await self.queue.put(i)
-        self.log.info('calling queue_finished()')
 
     async def do_work(self, number):
         """this logic gets called after an object
@@ -37,13 +29,12 @@ class AutoSaveExample(OutputJob):
             self.log.info('adding %s to queue', randint)
             await self.queue.put(randint)
             self.increment_stat(name='post-fill')
-        await asyncio.sleep(random.randint(0, 10))
         return sum_of_nums
 
 
 manager = JobManager()
 manager.context.data.register_cache('output', set(), 'output/output.txt')
-job = AutoSaveExample('output', input_data=3000, max_concurrent=15)
+job = AutoSaveExample('output', input_data=range(1, 3000), max_concurrent=15)
 
 manager.add_jobs(job)
 manager.start()

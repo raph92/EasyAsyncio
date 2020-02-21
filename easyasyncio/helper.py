@@ -9,3 +9,7 @@ def hash(obj):
     hash_id = hashlib.md5()
     hash_id.update(repr(obj).encode('utf-8'))
     return str(hash_id.hexdigest())
+
+
+def get_length(obj):
+    return f'{len(obj)} results' if isinstance(obj, (list, set, dict)) else obj

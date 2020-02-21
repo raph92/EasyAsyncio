@@ -4,18 +4,13 @@ import logging
 import random
 
 from easyasyncio import JobManager, Job
-from easyasyncio.job import ForwardQueuingJob
+from easyasyncio.job import ForwardQueuingJob, OutputJob
 
 
 class QueueJob(ForwardQueuingJob):
 
     def __init__(self, successor: Job, **kwargs) -> None:
         super().__init__(successor, **kwargs)
-
-    async def fill_queue(self):
-        for i in range(self.input_data):
-            await self.queue.put(i)
-        await self.filled_queue()
 
     async def do_work(self, num):
         # do something meaning full here
@@ -28,11 +23,8 @@ class QueueJob(ForwardQueuingJob):
         self.log.info('done at %s', datetime.datetime.now())
 
 
-class PrintJob(Job):
+class PrintJob(OutputJob):
     """print numbers asynchronously"""
-
-    async def fill_queue(self):
-        pass
 
     async def do_work(self, number):
         """this logic gets called after an
@@ -50,7 +42,7 @@ manager = JobManager()
 consumer = PrintJob(max_concurrent=15,
                     max_queue_size=5, log_level=logging.DEBUG)
 producer = QueueJob(consumer,
-                    input_data=100,
+                    input_data=range(100),
                     max_concurrent=15, log_level=logging.DEBUG)
 
 manager.add_jobs(producer, consumer)
