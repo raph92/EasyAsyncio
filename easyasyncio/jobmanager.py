@@ -96,7 +96,7 @@ class JobManager(Thread):
         finally:
             self.context.stats._end_time = time.time()
             self.stop()
-            self.logger.info('Exiting.')
+            self.logger.info('Exiting... Please wait')
 
     def add_jobs(self, *jobs: 'Job'):
         for job in jobs:
@@ -174,14 +174,15 @@ class JobManager(Thread):
                 self.save()
             except Exception as e:
                 self.logger.exception(e)
-        self.context.stats_thread.display()
-        self.context.data.save_caches()
-        self.context.data.clean()
+
         if self.status == 'Stopping...':
             self.status = 'Shutdown'
             self.logger.debug('post_shutdown saving finished')
 
     def save(self) -> None:
+        self.context.stats_thread.display()
+        self.context.data.save_caches()
+        self.context.data.clean()
         self.context.save_thread.save()
 
     @property
