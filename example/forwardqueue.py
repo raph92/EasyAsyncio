@@ -16,7 +16,9 @@ class QueueJob(ForwardQueuingJob):
         # do something meaning full here
         await asyncio.sleep(0.01)
         self.log.debug('sending "%s" to successor', num)
-        return num
+        if random.randint(0, 3) == 1:
+            return
+        return list(range(num))
 
     async def on_finish(self):
         await super().on_finish()
@@ -42,7 +44,7 @@ manager = JobManager()
 consumer = PrintJob(max_concurrent=15,
                     max_queue_size=5, log_level=logging.DEBUG)
 producer = QueueJob(consumer,
-                    input_data=range(100),
+                    input_data=range(10, 11),
                     max_concurrent=15, log_level=logging.DEBUG)
 
 manager.add_jobs(producer, consumer)

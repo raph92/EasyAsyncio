@@ -126,28 +126,31 @@ class Job(abc.ABC):
         This is called during manager.add_job(...) and needs to be called
         before this class can access any property from **self.context**
         """
-        self.context = context
-        self.data = context.data
-        self.loop = context.loop
+        self._initialize_variables(context)
         self.context.jobs.add(self)
-        self.sem = Semaphore(self.max_concurrent, loop=self.loop)
-        self.context.queues.new(self.name)
-        self.log.addHandler(JobLogHandler(self, level=self.log_level))
+        self._initialize_config()
         self.status('initialized')
         self.log.info('loading cached items...')
         if self.cache_enabled:
             context.data.register_job_cache(self, dict(), self.cache_name)
-            # context.data.register_job_cache(self, set(),
-            #                                 self.success_cache_name)
         self.data.register_cache('%s.failed' % self.name, set(),
                                  './data/failed/%s.txt' % self.name)
+
+    def _initialize_config(self):
+        self.context.queues.new(self.name)
+        self.sem = Semaphore(self.max_concurrent, loop=self.loop)
+        self.log.addHandler(JobLogHandler(self, level=self.log_level))
+
+    def _initialize_variables(self, context):
+        self.context = context
+        self.data = context.data
+        self.loop = context.loop
 
     async def run(self):
         """setup workers and start"""
         self.log.debug('starting...')
         self.running = True
         try:
-            # create workers
             self.create_workers()
         except Exception:
             self.log.error('Failed to create workers.')
@@ -156,12 +159,7 @@ class Job(abc.ABC):
             # fill queue
             self.status('filling queue')
             self.log.debug('creating queue task...')
-            if (isinstance(self, ForwardQueuingJob)
-                    or isinstance(self, OutputJob) and self.input_data):
-                queue_task = self.loop.create_task(self.fill_queue())
-                self.tasks.add(queue_task)
-            queue_watcher_task = self.loop.create_task(self.queue_watcher())
-            self.tasks.add(queue_watcher_task)
+            await self._create_queue_tasks()
             # process
             self.status('working')
             try:
@@ -174,8 +172,15 @@ class Job(abc.ABC):
                 raise
         finally:
             self.running = False
-            # finish
             await self.on_finish()
+
+    async def _create_queue_tasks(self):
+        if (isinstance(self, ForwardQueuingJob)
+                or isinstance(self, OutputJob) and self.input_data):
+            queue_task = self.loop.create_task(self.fill_queue())
+            self.tasks.add(queue_task)
+        queue_watcher_task = self.loop.create_task(self.queue_watcher())
+        self.tasks.add(queue_watcher_task)
 
     async def fill_queue(self):
         """implement the queue filling logic here"""
@@ -359,7 +364,8 @@ class Job(abc.ABC):
         self.data.get_job_cache(self, self.cache_name)[hash_id] = result
 
     def deindex(self, input_data):
-        hash_id = hash(input_data)
+        hash_id = input_data if isinstance(input_data, (str, int)) else hash(
+                input_data)
         return self.data.get_job_cache(self, self.cache_name).get(hash_id)
 
     def increment_stat(self, n=1, name: str = None) -> None:
