@@ -360,7 +360,8 @@ class Job(abc.ABC):
         self.info.get('requeued')[reason or 'unspecified'] += 1
 
     def index(self, input_data, result):
-        hash_id = hash(input_data)
+        hash_id = input_data if isinstance(input_data, (str, int)) else hash(
+                input_data)
         self.data.get_job_cache(self, self.cache_name)[hash_id] = result
 
     def deindex(self, input_data):
