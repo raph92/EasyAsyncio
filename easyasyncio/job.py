@@ -14,7 +14,7 @@ from diskcache import Deque, Index
 
 from .cachetypes import CacheSet
 from .context import Context
-from .helper import hash, get_length
+from .helper import hash
 
 if TYPE_CHECKING:
     from . import DataManager
@@ -30,6 +30,7 @@ class Job(abc.ABC):
     input_data: Any
     fail_cache_name = 'failed'
     data: 'DataManager'
+    primary = False
 
     def __init__(self,
                  input_data=None,
@@ -224,7 +225,7 @@ class Job(abc.ABC):
             if self.cache_enabled:
                 result = self.deindex(queued_data)
                 if result:
-                    count = get_length(result)
+                    count = self.get_length(result)
                     self.log.info('uncached %s from %s', count,
                                   queued_data)
             # noinspection PyBroadException
@@ -252,6 +253,10 @@ class Job(abc.ABC):
 
         self.info['workers'] -= 1
         self.log.debug('[worker%s] terminated', num)
+
+    def get_length(self, obj):
+        return (f'{len(obj)} {self.result_name}'
+                if isinstance(obj, (list, set, dict)) else obj)
 
     async def _on_work_processed(self, input_data, result):
         try:
@@ -398,8 +403,11 @@ class Job(abc.ABC):
                     extras=extras or {}, timestamp=time())
         path = f'./diagnostics/{self.name}/{name}{ext}'
         self.data.register(name, json, path, False, False)
-        self.log.debug(
+        self.log.info(
                 'saved diagnostic info for %s -> %s' % (input_data, path))
+
+    def set_primary(self):
+        self.primary = True
 
     @abstractmethod
     async def queue_watcher(self):
@@ -456,8 +464,10 @@ class ForwardQueuingJob(Job, abc.ABC):
     async def queue_watcher(self):
         self.log.debug('starting queue watcher')
         while self.context.running:
-            await asyncio.sleep(0.5)
-            if not self.queue_looped or not self.idle:
+            await asyncio.sleep(3)
+            if (not self.queue_looped
+                    or not self.idle
+                    or not self.queue.empty()):
                 continue
             predecessor_not_finished = (self.predecessor
                                         and not self.predecessor.finished)

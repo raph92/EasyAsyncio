@@ -11,5 +11,3 @@ def hash(obj):
     return str(hash_id.hexdigest())
 
 
-def get_length(obj):
-    return f'{len(obj)} results' if isinstance(obj, (list, set, dict)) else obj
