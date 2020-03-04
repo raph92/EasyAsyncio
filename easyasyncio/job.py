@@ -532,6 +532,11 @@ class OutputJob(Job, abc.ABC):
         self.output = output
         super().__init__(**kwargs)
 
+    def initialize(self, context: Context):
+        super().initialize(context)
+        self.log.info('starting with %s items in output',
+                      len(self.get_data(self.output)))
+
     async def on_item_completed(self, o):
         if not self.output:
             self.log.info(o)
