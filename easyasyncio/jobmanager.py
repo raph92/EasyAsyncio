@@ -181,6 +181,7 @@ class JobManager(Thread):
 
     def save(self) -> None:
         self.context.stats_thread.display()
+        self.logger.info('saving all data... please wait')
         self.context.data.save_caches()
         self.context.data.clean()
         self.context.save_thread.save()

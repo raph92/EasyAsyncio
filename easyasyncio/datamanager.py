@@ -178,7 +178,6 @@ class DataManager(UserDict):
         return string.rstrip()
 
     def save(self):
-        self.logger.info('saving all data... please wait')
         for name, value in self.items():
             # check if this key has a file name
             if name not in self.filemanager:
