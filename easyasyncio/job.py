@@ -94,6 +94,8 @@ class Job(abc.ABC):
 
         self.queue_looped = False
         self.finished = False
+        self.last_queue_item_grab_time = time()
+        self.min_idle_time_before_finish = 5
         self.predecessor: 'Optional[Job]' = None
         self.successor: 'Optional[Job]' = None
 
@@ -217,6 +219,7 @@ class Job(abc.ABC):
             result = None
             self.status('waiting on queue')
             queued_data = await self.queue.get()
+            self.last_queue_item_grab_time = time()
             self.log.debug('[worker%s] retrieved queued data "%s"',
                            num, queued_data)
             self.status('working')
@@ -491,8 +494,10 @@ class ForwardQueuingJob(Job, abc.ABC):
                                       and not self.successor.finished)
             if predecessor_not_finished or successor_not_finished:
                 continue
-            await self.queue_finished()
-            break
+            if (time() - self.last_queue_item_grab_time
+                    > self.min_idle_time_before_finish):
+                await self.queue_finished()
+                break
 
 
 class BackwardQueuingJob(Job, abc.ABC):
@@ -572,8 +577,10 @@ class OutputJob(Job, abc.ABC):
                 continue
             if self.predecessor and not self.predecessor.finished:
                 continue
-            await self.queue_finished()
-            break
+            if (time() - self.last_queue_item_grab_time
+                    > self.min_idle_time_before_finish):
+                await self.queue_finished()
+                break
 
 
 class JobLogHandler(logging.Handler):
