@@ -13,7 +13,7 @@ import attr
 from aiohttp import ServerDisconnectedError
 from diskcache import Deque, Index
 
-from .cachetypes import CacheSet
+from .cachetypes import CacheSet, EvictingIndex
 from .context import Context
 from .helper import hash
 
@@ -48,6 +48,9 @@ class Job(abc.ABC):
     data: 'DataManager'
     primary = False
     fail_string_length = 0
+    success_string_length = 0
+    result_justify = 0
+    input_justify = 0
 
     def __init__(self,
                  input_data=None,
@@ -86,8 +89,6 @@ class Job(abc.ABC):
         See Also: :class:`OutputJob` :class:`ForwardQueuingJob`
             :class:`BackwardQueuingJob`
         """
-        self.result_justify = 0
-        self.input_justify = 0
         self.log_level = log_level
         self.auto_add_results = auto_add_results
         self.input_data = input_data
@@ -253,10 +254,10 @@ class Job(abc.ABC):
             if isinstance(queued_data, QueueLooped):
                 self.queue_looped = True
                 continue
-            if queued_data in self.failed_inputs:
-                continue
             if queued_data is False:
                 break
+            if queued_data in self.failed_inputs:
+                continue
             if self.cache_enabled:
                 result = self.deindex(queued_data)
                 if result:
@@ -279,19 +280,17 @@ class Job(abc.ABC):
             except FailResponse as fr:
                 self.increment_stat(name=fr.reason)
                 self.failed_inputs.add(queued_data)
-                self.print_failed(fr.reason, '%s %s' % (
-                        color_cyan('Input:'), queued_data))
+                self.print_failed(fr.reason, queued_data)
                 self.queue.task_done()
             except RequeueResponse as rr:
                 if self.auto_requeue:
                     await self.queue.put(queued_data)
                     self.increment_stat(name=rr.reason)
-                    self.print_failed(rr.reason, '%s %s' % (
-                            color_cyan('Input:'), queued_data))
+                self.print_failed(rr.reason, queued_data)
             except NoRequeueResponse as nrr:
                 self.increment_stat(name=nrr.reason)
-                self.print_failed(nrr.reason, '%s %s' % (
-                        color_cyan('Input:'), queued_data))
+
+                self.print_failed(nrr.reason, queued_data)
                 # self.log.info(x_mark + '[No Requeue][%s] %s', nrr.reason,
                 #               queued_data)
                 self.log.debug('%s NoRequeue reason: %s', queued_data,
@@ -299,8 +298,7 @@ class Job(abc.ABC):
                 self.queue.task_done()
             except UnknownResponse as ur:
                 self.diag_save(ur.diagnostics)
-                self.print_failed(ur.reason, '%s %s' % (
-                        color_cyan('Input:'), queued_data))
+                self.print_failed(ur.reason, queued_data)
                 if ur.extra_info:
                     self.log.info('❌%s', ur.extra_info)
                 self.increment_stat(name=ur.reason)
@@ -319,10 +317,6 @@ class Job(abc.ABC):
         self.info['workers'] -= 1
         self.log.debug('[worker%s] terminated', num)
 
-    def get_formatted_output(self, obj) -> str:
-        return (f'{len(obj)} {self.result_name}'
-                if isinstance(obj, (list, set, dict)) else repr(obj))
-
     async def _on_work_processed(self, input_data, result):
         if self.cache_enabled:
             self.index(input_data, result)
@@ -338,9 +332,15 @@ class Job(abc.ABC):
         if len(repr(output)) > self.result_justify:
             self.result_justify = len(repr(output))
         success_colored = color_green('[Success]')
+        if len(success_colored) > self.success_string_length:
+            self.success_string_length = len(success_colored)
         success_colored = success_colored.ljust(self.fail_string_length)
         input_colored = color_cyan('Input')
         input_data_formatted = str(input_data).ljust(self.input_justify)
+        i_len = len(input_data_formatted)
+        max_str_len = 45
+        if i_len > max_str_len:
+            input_data_formatted = input_data_formatted[:max_str_len] + '...'
         output_data_formatted = output.ljust(self.result_justify)
         self.log.info(check_mark + '%s %s: %s %s: %s',
                       success_colored,
@@ -349,12 +349,16 @@ class Job(abc.ABC):
                       color_cyan('Output'),
                       output_data_formatted)
 
-    def print_failed(self, reason, string: str):
+    def print_failed(self, reason, queued_data: str):
+        string = '%s %s' % (color_cyan('Input:'), queued_data)
         failed_string = color_red('[%s]' % reason.capitalize())
         if len(failed_string) > self.fail_string_length:
             self.fail_string_length = len(failed_string)
         formatted = '%s%s %s' % (
-                x_mark, failed_string.ljust(self.fail_string_length), string)
+                x_mark, failed_string.ljust(
+                        max(self.fail_string_length,
+                            self.success_string_length)),
+                string)
         self.log.info(formatted)
 
     @abstractmethod
@@ -436,6 +440,8 @@ class Job(abc.ABC):
     # noinspection PyMethodMayBeStatic
     async def queue_filter(self, obj):
         """All items added to the queue must fulfil this requirement"""
+        if obj in self.failed_inputs:
+            return None
         return obj
 
     async def requeue(self, obj, reason=''):
@@ -456,9 +462,7 @@ class Job(abc.ABC):
 
     def increment_stat(self, n=1, name: str = None) -> None:
         """increment the count of whatever this Job is processing"""
-        if not name:
-            name = self.result_name
-        self.stats[name] += n
+        self.stats[name or self.result_name] += n
 
     def status(self, *strings: str):
         status = ' '.join(
@@ -484,6 +488,13 @@ class Job(abc.ABC):
         self.data.register(name, json, path, False, False)
         self.log.info(
                 'saved diagnostic info for %s -> %s' % (diag.input_data, path))
+
+    def get_formatted_output(self, obj) -> str:
+        return (f'{len(obj)} {self.result_name}'
+                if isinstance(obj, (list, set, dict)) else str(obj))
+
+    def get_formatted_input(self, obj) -> str:
+        return obj
 
     def set_primary(self):
         self.primary = True
@@ -543,7 +554,7 @@ class ForwardQueuingJob(Job, abc.ABC):
     async def queue_watcher(self):
         self.log.debug('starting queue watcher')
         while self.context.running:
-            await asyncio.sleep(3)
+            await asyncio.sleep(0.5)
             if (not self.queue_looped
                     or not self.idle
                     or not self.queue.empty()):
@@ -622,14 +633,15 @@ class OutputJob(Job, abc.ABC):
         if not self.output:
             self.log.info(o)
         cache = self.get_data(self.output)
+        if not o not in cache:
+            self.increment_stat()
         if isinstance(cache, (CacheSet, set)):
             cache.add(o)
         elif isinstance(cache, (Deque, list)):
             cache.append(o)
-        elif isinstance(cache, (Index, MutableMapping)):
+        elif isinstance(cache, (Index, MutableMapping, EvictingIndex)):
             key, value = o
             cache[key] = value
-        self.increment_stat(name=self.result_name)
 
     async def queue_watcher(self):
         self.log.debug('starting queue watcher')
@@ -704,7 +716,7 @@ class UnknownResponse(Response):
 @attr.s(auto_attribs=True)
 class Diagnostics:
     """Save response information for diagnostics and debugging"""
-    content: str
+    content: object
     input_data: object
     extras: dict = {}
     extension: str = '.json'

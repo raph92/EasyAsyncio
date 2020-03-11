@@ -42,10 +42,12 @@ class PrintJob(OutputJob):
 manager = JobManager()
 
 consumer = PrintJob(max_concurrent=15,
-                    max_queue_size=5, log_level=logging.DEBUG)
+                    max_queue_size=5, log_level=logging.DEBUG,
+                    print_successes=True)
 producer = QueueJob(consumer,
                     input_data=range(10, 11),
-                    max_concurrent=15, log_level=logging.DEBUG)
+                    max_concurrent=15, log_level=logging.DEBUG,
+                    print_successes=True)
 
 manager.add_jobs(producer, consumer)
 manager.start()

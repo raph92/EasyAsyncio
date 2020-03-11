@@ -20,14 +20,14 @@ class AutoSaveExample(OutputJob):
         # self.log.info('Summation of %s is %s', number, sum_of_nums)
         self.context.stats['test_stat'] += 1
         try:
-            if random.randint(0, 700) == 5:
+            if random.randint(0, 200) == 5:
                 raise Exception()
         except:
             raise UnknownResponse(Diagnostics(sum_of_nums, number),
                                   'testerror', extra_info='Test exception')
         if random.randint(0, 5) == 5:
             randint = random.randint(5001, 10000)
-            self.log.info('adding %s to queue', randint)
+            # self.log.info('adding %s to queue', randint)
             await self.queue.put(randint)
             self.increment_stat(name='post-fill')
         return sum_of_nums
