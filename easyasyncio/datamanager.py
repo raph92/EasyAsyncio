@@ -6,7 +6,7 @@ from typing import Sized, Iterable, Dict, Union, TYPE_CHECKING
 from diskcache import Index, Deque
 from easyfilemanager import FileManager
 
-from easyasyncio.cachetypes import CacheSet
+from easyasyncio.cachetypes import CacheSet, EvictingIndex
 
 if TYPE_CHECKING:
     from easyasyncio import Job
@@ -144,7 +144,7 @@ class DataManager(UserDict):
             self[name] = Deque(loaded_data or [], path)
             self.logger.debug('creating new Deque for %s', name)
         elif isinstance(initial_data, dict):
-            self[name] = Index(path, **(loaded_data or {}))
+            self[name] = EvictingIndex(path, **(loaded_data or {}))
             self.logger.debug('creating new Index for %s', name)
 
     def load(self, data, loaded_data, name):
@@ -201,7 +201,7 @@ class DataManager(UserDict):
             if isinstance(value, (CacheSet, Deque)):
                 self.filemanager.smart_save(name, list(value), mode='w+',
                                             **save_kwargs)
-            elif isinstance(value, Index):
+            elif isinstance(value, (Index, EvictingIndex)):
                 self.filemanager.smart_save(name, dict(value),
                                             **save_kwargs)
 

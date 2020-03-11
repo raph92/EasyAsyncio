@@ -10,4 +10,5 @@ def hash(obj):
         obj = repr(obj)
     hash_id = hashlib.md5()
     hash_id.update(repr(obj).encode('utf-8'))
-    return str(hash_id.hexdigest())
+    hex_digest = str(hash_id.hexdigest())
+    return hex_digest
