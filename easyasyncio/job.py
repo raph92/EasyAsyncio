@@ -9,6 +9,7 @@ from time import time
 from typing import (Set, Any, MutableMapping, TYPE_CHECKING, Dict,
                     Optional)
 
+import attr
 from aiohttp import ServerDisconnectedError
 from diskcache import Deque, Index
 
@@ -230,29 +231,53 @@ class Job(abc.ABC):
                 result = self.deindex(queued_data)
                 if result:
                     count = self.get_length(result)
-                    self.log.info('uncached %s from %s', count,
+                    self.log.info('✔ [Cache][%s] %s', count,
                                   queued_data)
             # noinspection PyBroadException
             try:
                 result = result if result is not None else await self.do_work(
                         queued_data)
+                self.queue.task_done()
             except CancelledError:
                 self.log.debug('work on %s has been cancelled', queued_data)
                 break
             except ServerDisconnectedError:
                 self.log.error('server disconnected')
                 await self.queue.put(queued_data)
+            except FailResponse as fr:
+                self.increment_stat(name=fr.reason)
+                self.failed_inputs.add(queued_data)
+                self.log.info('✗ [Failed permanently][%s] %s', fr.reason,
+                              queued_data)
+                self.queue.task_done()
+            except RequeueResponse as rr:
+                if self.auto_requeue:
+                    await self.queue.put(queued_data)
+                    self.increment_stat(name=rr.reason)
+                    self.log.info('✗ [Fail][Requeue][%s] %s', rr.reason,
+                                  queued_data)
+            except NoRequeueResponse as nrr:
+                self.increment_stat(name=nrr.reason)
+                self.log.info('✗ [Failed][No Requeue][%s] %s', nrr.reason,
+                              queued_data)
+                self.log.debug('%s NoRequeue reason: %s', queued_data,
+                               nrr.reason)
+                self.queue.task_done()
+            except UnknownResponse as ur:
+                self.diag_save(ur.diagnostics)
+                if ur.extra_info:
+                    self.log.info(ur.extra_info)
+                self.increment_stat(name=ur.reason)
+                self.queue.task_done()
             except Exception:
-                self.increment_stat(name='exceptions')
+                self.increment_stat(name='uncaught-exceptions')
                 self.log.exception('worker uncaught exception: %s',
                                    dict(queued_data=queued_data))
-                await self.add_to_queue(queued_data)
-                self.failed_inputs.add(queued_data)
                 self.with_errors = True
+                self.queue.task_done()
             else:
                 await self._on_work_processed(queued_data, result)
             finally:
-                self.queue.task_done()
                 self.increment_stat(name='attempted')
 
         self.info['workers'] -= 1
@@ -263,24 +288,10 @@ class Job(abc.ABC):
                 if isinstance(obj, (list, set, dict)) else obj)
 
     async def _on_work_processed(self, input_data, result):
-        try:
-            self.failed_inputs.remove(input_data)
-        except KeyError:
-            pass
-        if result is None:
-            if self.auto_requeue:
-                await self.queue.put(input_data)
-                self.increment_stat(name='requeued')
-            return
-        if result is not False:  # success
-            # only use post-processing if the result is not a boolean
-            if self.cache_enabled:
-                self.index(input_data, result)
-            if result is not True and self.auto_add_results:
-                await self._post_process(result)
-        else:  # failure
-            self.failed_inputs.add(input_data)
-            self.increment_stat(name='failed')
+        if self.cache_enabled:
+            self.index(input_data, result)
+        if self.auto_add_results:
+            await self._post_process(result)
 
     @abstractmethod
     async def do_work(self, input_data) -> object:
@@ -397,18 +408,17 @@ class Job(abc.ABC):
     def get_data(self, name):
         return self.data.get(name)
 
-    def diag_save(self, content, input_data, name=None, ext='.json',
-                  extras=None):
+    def diag_save(self, diag: 'Diagnostics', name=None):
         """
         Save useful diagnostic information
         """
         name = name or str(time()).replace('.', '')
-        json = dict(content=content, input_data=input_data,
-                    extras=extras or {}, timestamp=time())
-        path = f'./diagnostics/{self.name}/{name}{ext}'
+        json = dict(content=diag.content, input_data=diag.input_data,
+                    extras=diag.extras or {}, timestamp=time())
+        path = f'./diagnostics/{self.name}/{name}{diag.extension}'
         self.data.register(name, json, path, False, False)
         self.log.info(
-                'saved diagnostic info for %s -> %s' % (input_data, path))
+                'saved diagnostic info for %s -> %s' % (diag.input_data, path))
 
     def set_primary(self):
         self.primary = True
@@ -580,3 +590,52 @@ class JobLogHandler(logging.Handler):
 
 class QueueLooped:
     pass
+
+
+class Response(Exception):
+    reason: str
+
+    def __init__(self, reason, *args: object) -> None:
+        super().__init__(*args)
+        self.reason = reason
+
+
+class RequeueResponse(Response):
+    """Processing did not return meaning data, and it will be added to the
+     queue for reprocessing."""
+
+    def __init__(self, reason='requeued', *args: object) -> None:
+        super().__init__(reason, *args)
+
+
+class FailResponse(Response):
+    """Processing failed and will consistently fail so it will not be added
+    back to the queue and will not be processed in the future."""
+
+    def __init__(self, reason='failed', *args: object) -> None:
+        super().__init__(reason, *args)
+
+
+class NoRequeueResponse(Response):
+    """Processing did not return a value, but will not be requeued during this
+    session. However it will be added on the next run."""
+
+    def __init__(self, reason='temporarily-failed', *args: object) -> None:
+        super().__init__(reason, *args)
+
+
+class UnknownResponse(Response):
+    def __init__(self, diagnostics: 'Diagnostics', reason='unknown',
+                 extra_info='', *args: object) -> None:
+        super().__init__(reason, *args)
+        self.diagnostics = diagnostics
+        self.extra_info = extra_info
+
+
+@attr.s(auto_attribs=True)
+class Diagnostics:
+    """Save response information for diagnostics and debugging"""
+    content: str
+    input_data: object
+    extras: dict = {}
+    extension: str = '.json'
