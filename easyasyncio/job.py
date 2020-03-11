@@ -20,6 +20,21 @@ from .helper import hash
 if TYPE_CHECKING:
     from . import DataManager
 
+check_mark = '\N{WHITE HEAVY CHECK MARK}'
+x_mark = '\N{CROSS MARK}'
+
+
+def color_cyan(skk):
+    return "\033[96m {}\033[00m".format(skk)
+
+
+def color_green(skk):
+    return "\033[92m {}\033[00m".format(skk)
+
+
+def color_red(skk):
+    return "\033[91m {}\033[00m".format(skk)
+
 
 class Job(abc.ABC):
     tasks: Set[Future]
@@ -32,6 +47,7 @@ class Job(abc.ABC):
     fail_cache_name = 'failed'
     data: 'DataManager'
     primary = False
+    fail_string_length = 0
 
     def __init__(self,
                  input_data=None,
@@ -45,7 +61,8 @@ class Job(abc.ABC):
                  product_name='successes',
                  log_level=logging.INFO,
                  auto_requeue=True,
-                 exit_on_queue_finish=True) -> None:
+                 exit_on_queue_finish=True,
+                 print_successes=False) -> None:
         """
 
         Args:
@@ -64,9 +81,13 @@ class Job(abc.ABC):
                 back into queue
             exit_on_queue_finish (bool): Exit when self.queue_finished is
                 called
+            print_successes (bool): Whether to automatically print success
+                information
         See Also: :class:`OutputJob` :class:`ForwardQueuingJob`
             :class:`BackwardQueuingJob`
         """
+        self.result_justify = 0
+        self.input_justify = 0
         self.log_level = log_level
         self.auto_add_results = auto_add_results
         self.input_data = input_data
@@ -98,6 +119,12 @@ class Job(abc.ABC):
         self.min_idle_time_before_finish = 5
         self.predecessor: 'Optional[Job]' = None
         self.successor: 'Optional[Job]' = None
+        self.print_successes = print_successes
+
+        if len(self.__class__.__name__) > 15:
+            self.log.warning(
+                    '[WARNING] Class names greater than 15 characters '
+                    'will cause logger formatting bugs.')
 
     @property
     def queue(self) -> Queue:
@@ -233,9 +260,11 @@ class Job(abc.ABC):
             if self.cache_enabled:
                 result = self.deindex(queued_data)
                 if result:
-                    count = self.get_length(result)
-                    self.log.info('✔ [Cache][%s] %s', count,
-                                  queued_data)
+                    output = self.get_formatted_output(result)
+                    if not self.print_successes:
+                        self.log.info(
+                                check_mark + '[Cache] Input: %s Output: %s ',
+                                queued_data, output)
             # noinspection PyBroadException
             try:
                 result = result if result is not None else await self.do_work(
@@ -250,26 +279,30 @@ class Job(abc.ABC):
             except FailResponse as fr:
                 self.increment_stat(name=fr.reason)
                 self.failed_inputs.add(queued_data)
-                self.log.info('✗ [Failed permanently][%s] %s', fr.reason,
-                              queued_data)
+                self.print_failed(fr.reason, '%s %s' % (
+                        color_cyan('Input:'), queued_data))
                 self.queue.task_done()
             except RequeueResponse as rr:
                 if self.auto_requeue:
                     await self.queue.put(queued_data)
                     self.increment_stat(name=rr.reason)
-                    self.log.info('✗ [Fail][Requeue][%s] %s', rr.reason,
-                                  queued_data)
+                    self.print_failed(rr.reason, '%s %s' % (
+                            color_cyan('Input:'), queued_data))
             except NoRequeueResponse as nrr:
                 self.increment_stat(name=nrr.reason)
-                self.log.info('✗ [Failed][No Requeue][%s] %s', nrr.reason,
-                              queued_data)
+                self.print_failed(nrr.reason, '%s %s' % (
+                        color_cyan('Input:'), queued_data))
+                # self.log.info(x_mark + '[No Requeue][%s] %s', nrr.reason,
+                #               queued_data)
                 self.log.debug('%s NoRequeue reason: %s', queued_data,
                                nrr.reason)
                 self.queue.task_done()
             except UnknownResponse as ur:
                 self.diag_save(ur.diagnostics)
+                self.print_failed(ur.reason, '%s %s' % (
+                        color_cyan('Input:'), queued_data))
                 if ur.extra_info:
-                    self.log.info(ur.extra_info)
+                    self.log.info('❌%s', ur.extra_info)
                 self.increment_stat(name=ur.reason)
                 self.queue.task_done()
             except Exception:
@@ -286,37 +319,66 @@ class Job(abc.ABC):
         self.info['workers'] -= 1
         self.log.debug('[worker%s] terminated', num)
 
-    def get_length(self, obj):
+    def get_formatted_output(self, obj) -> str:
         return (f'{len(obj)} {self.result_name}'
-                if isinstance(obj, (list, set, dict)) else obj)
+                if isinstance(obj, (list, set, dict)) else repr(obj))
 
     async def _on_work_processed(self, input_data, result):
         if self.cache_enabled:
             self.index(input_data, result)
         if self.auto_add_results:
             await self._post_process(result)
+        if self.print_successes:
+            self.print_success(input_data, result)
+
+    def print_success(self, input_data, result):
+        if len(repr(input_data)) > self.input_justify:
+            self.input_justify = len(repr(input_data))
+        output = self.get_formatted_output(result)
+        if len(repr(output)) > self.result_justify:
+            self.result_justify = len(repr(output))
+        success_colored = color_green('[Success]')
+        success_colored = success_colored.ljust(self.fail_string_length)
+        input_colored = color_cyan('Input')
+        input_data_formatted = str(input_data).ljust(self.input_justify)
+        output_data_formatted = output.ljust(self.result_justify)
+        self.log.info(check_mark + '%s %s: %s %s: %s',
+                      success_colored,
+                      input_colored,
+                      input_data_formatted,
+                      color_cyan('Output'),
+                      output_data_formatted)
+
+    def print_failed(self, reason, string: str):
+        failed_string = color_red('[%s]' % reason.capitalize())
+        if len(failed_string) > self.fail_string_length:
+            self.fail_string_length = len(failed_string)
+        formatted = '%s%s %s' % (
+                x_mark, failed_string.ljust(self.fail_string_length), string)
+        self.log.info(formatted)
 
     @abstractmethod
     async def do_work(self, input_data) -> object:
         """
         Do business logic on each enqueued item and returns the completed data.
 
-        This method should return an object or **True** on completion.
-        If the work fails in a predicted way, this method should return False.
-        If the work fails in an unexpected way, this method should not return
-        anything.
+        This method should not be called directly.
 
-        When an object is returned, the queued_data will be added to the cache.
-        The object will also be sent to **self.post_process()** to be either
-        queued or "outputted" depending on the type of Job.
+        This method should return an object or raise type of Response on
+        completion.
+        If the work fails in a predicted way and is expected to continue to
+        fail, this method should raise a FailedResponse.
+        If the work fails in a predicted way and needs to be requeued, it
+        should raise a RequeueResponse.
+        If the work fails in a predicted way and should not be requeued, it
+        should raise a NoRequeueResponse
+        If the work fails in an unexpected way, it should raise a
+        UnknownResponse and have a Diagnostics object passed to it with the
+        fail information
 
-        When a **True** is returned, the queued_data will also be cached, but
-        there will be no further processing done to it.
-
-        When a **False** is returned, the queued_data will be cached as well,
-        no further processing will be done.
-
-        When **None** is returned, the queued_data will not be cached.
+        All completed items will be added to the queue if self.cache_enabled is
+        set to true. Completed items will then be passed to _post_process for
+        further processing.
 
         See Also :class:`Job.worker`
         """
