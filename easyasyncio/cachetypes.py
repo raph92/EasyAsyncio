@@ -46,8 +46,6 @@ class CacheSet:
         return iter(self.index.values())
 
     def __contains__(self, item):
-        if isinstance(item, set):
-            item = tuple(item)
         self__hash = hash(item)
         return self__hash in self.index
 
