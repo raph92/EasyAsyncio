@@ -633,7 +633,7 @@ class OutputJob(Job, abc.ABC):
         if not self.output:
             self.log.info(o)
         cache = self.get_data(self.output)
-        if not o not in cache:
+        if o not in cache:
             self.increment_stat()
         if isinstance(cache, (CacheSet, set)):
             cache.add(o)
