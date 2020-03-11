@@ -186,6 +186,8 @@ class Job(abc.ABC):
     async def fill_queue(self):
         """implement the queue filling logic here"""
         for d in self.input_data:
+            if d in self.failed_inputs:
+                continue
             await self.add_to_queue(d)
             await asyncio.sleep(0)
         await self.filled_queue()
@@ -219,6 +221,8 @@ class Job(abc.ABC):
             self.status('working')
             if isinstance(queued_data, QueueLooped):
                 self.queue_looped = True
+                continue
+            if queued_data in self.failed_inputs:
                 continue
             if queued_data is False:
                 break
