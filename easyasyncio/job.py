@@ -13,27 +13,12 @@ import attr
 from aiohttp import ServerDisconnectedError
 from diskcache import Deque, Index
 
+from . import helper
 from .cachetypes import CacheSet, EvictingIndex
 from .context import Context
-from .helper import hash
 
 if TYPE_CHECKING:
     from . import DataManager
-
-check_mark = '\N{WHITE HEAVY CHECK MARK}'
-x_mark = '\N{CROSS MARK}'
-
-
-def color_cyan(skk):
-    return "\033[96m {}\033[00m".format(skk)
-
-
-def color_green(skk):
-    return "\033[92m {}\033[00m".format(skk)
-
-
-def color_red(skk):
-    return "\033[91m {}\033[00m".format(skk)
 
 
 class Job(abc.ABC):
@@ -47,10 +32,7 @@ class Job(abc.ABC):
     fail_cache_name = 'failed'
     data: 'DataManager'
     primary = False
-    fail_string_length = 0
-    success_string_length = 0
-    result_justify = 0
-    input_justify = 0
+    formatting = helper.LogFormatting()
 
     def __init__(self,
                  input_data=None,
@@ -132,12 +114,8 @@ class Job(abc.ABC):
         return self.context.queues.get(self.name)
 
     @property
-    def queue_cache(self) -> CacheSet:
-        """
-        A cache built for resuming any progress made when any Job is
-        restarted.
-        """
-        return self.data.get_job_cache(self, self.queue_cache_name)
+    def cache(self) -> EvictingIndex:
+        return self.data.get_job_cache(self, self.cache_name)
 
     @property
     def failed_inputs(self) -> CacheSet:
@@ -263,105 +241,139 @@ class Job(abc.ABC):
                 result = self.deindex(queued_data)
                 if result:
                     from_cache = True
-                    output = self.get_formatted_output(result)
-                    if not self.print_successes:
-                        self.log.info(
-                                check_mark + '[Cache] Input: %s Output: %s ',
-                                queued_data, output)
-            # noinspection PyBroadException
             try:
-                result = result if result is not None else await self.do_work(
-                        queued_data)
-                self.queue.task_done()
+                await self._post_do_work(from_cache, queued_data, result)
             except CancelledError:
                 self.log.debug('work on %s has been cancelled', queued_data)
                 break
-            except ServerDisconnectedError:
-                self.log.error('server disconnected')
-                await self.queue.put(queued_data)
-            except FailResponse as fr:
-                self.increment_stat(name=fr.reason)
-                self.failed_inputs.add(queued_data)
-                self.print_failed(fr.reason, queued_data)
-                self.queue.task_done()
-            except RequeueResponse as rr:
-                if self.auto_requeue:
-                    await self.queue.put(queued_data)
-                    self.increment_stat(name=rr.reason)
-                self.print_failed(rr.reason, queued_data)
-            except NoRequeueResponse as nrr:
-                self.increment_stat(name=nrr.reason)
-
-                self.print_failed(nrr.reason, queued_data)
-                # self.log.info(x_mark + '[No Requeue][%s] %s', nrr.reason,
-                #               queued_data)
-                self.log.debug('%s NoRequeue reason: %s', queued_data,
-                               nrr.reason)
-                self.queue.task_done()
-            except UnknownResponse as ur:
-                self.diag_save(ur.diagnostics)
-                self.print_failed(ur.reason, queued_data)
-                if ur.extra_info:
-                    self.log.info('❌%s', ur.extra_info)
-                self.increment_stat(name=ur.reason)
-                self.queue.task_done()
-            except Exception:
-                self.increment_stat(name='uncaught-exceptions')
-                self.log.exception('worker uncaught exception: %s',
-                                   dict(queued_data=queued_data))
-                self.with_errors = True
-                self.queue.task_done()
-            else:
-                await self._on_work_processed(queued_data, result)
-                if self.print_successes:
-                    self.print_success(queued_data, result, from_cache)
             finally:
                 self.increment_stat(name='attempted')
 
         self.info['workers'] -= 1
         self.log.debug('[worker%s] terminated', num)
 
-    async def _on_work_processed(self, input_data, result):
-        if self.cache_enabled:
-            self.index(input_data, result)
-        if self.auto_add_results:
-            await self._post_process(result)
+    async def _post_do_work(self, from_cache, queued_data, result):
+        # noinspection PyBroadException
+        try:
+            result = result if result is not None else await self.do_work(
+                    queued_data)
+        except ServerDisconnectedError:
+            self.log.error('server disconnected')
+            await self.queue.put(queued_data)
+        except FailResponse as fr:
+            self.increment_stat(name=fr.reason)
+            self.failed_inputs.add(queued_data)
+            self.print_failed(fr.reason, queued_data, fr.extra_info)
+            self.queue.task_done()
+        except RequeueResponse as rr:
+            if self.auto_requeue:
+                await self.queue.put(queued_data)
+                self.increment_stat(name=rr.reason)
+            self.print_requeued(rr.reason, queued_data)
+        except ValidationRequeueResponse as vrr:
+            await self.queue.put(vrr.new_input)
+            self.increment_stat(name=vrr.reason)
+            self.print_requeued(vrr.reason, queued_data, vrr.new_input)
+        except NoRequeueResponse as nrr:
+            self.increment_stat(name=nrr.reason)
+
+            self.print_failed(nrr.reason, queued_data)
+            # self.log.info(x_mark + '[No Requeue][%s] %s', nrr.reason,
+            #               queued_data)
+            self.log.debug('%s NoRequeue reason: %s', queued_data,
+                           nrr.reason)
+            self.queue.task_done()
+        except UnknownResponse as ur:
+            self.diag_save(ur.diagnostics)
+            self.print_failed(ur.reason, queued_data)
+            if ur.extra_info:
+                self.log.info('❌%s', ur.extra_info)
+            self.increment_stat(name=ur.reason)
+            self.queue.task_done()
+        except Exception:
+            self.increment_stat(name='uncaught-exceptions')
+            self.log.exception('worker uncaught exception: %s',
+                               dict(queued_data=queued_data))
+            self.with_errors = True
+            self.queue.task_done()
+        else:
+            self.queue.task_done()
+            if self.auto_add_results:
+                await self._post_process(result)
+            if self.cache_enabled and not from_cache:
+                self.index(queued_data, result)
+            if self.print_successes:
+                self.print_success(queued_data, result, from_cache)
 
     def print_success(self, input_data, result, from_cache=False):
-        if len(repr(input_data)) > self.input_justify:
-            self.input_justify = len(repr(input_data))
+        input_data = self.get_formatted_input(input_data)
+        input_data = self.formatting.format_input(input_data)
         output = self.get_formatted_output(result)
-        if len(repr(output)) > self.result_justify:
-            self.result_justify = len(repr(output))
-        success_colored = color_green(
-                f'[{"Success" if not from_cache else "Cached"}]')
-        if len(success_colored) > self.success_string_length:
-            self.success_string_length = len(success_colored)
-        success_colored = success_colored.ljust(self.fail_string_length)
-        input_colored = color_cyan('Input')
-        input_data_formatted = str(input_data).ljust(self.input_justify)
-        i_len = len(input_data_formatted)
-        max_str_len = 45
-        if i_len > max_str_len:
-            input_data_formatted = input_data_formatted[:max_str_len] + '...'
-        output_data_formatted = output.ljust(self.result_justify)
+        # self.formatting.update_result_justify(len(output))
+
+        success_colored = helper.color_green(f'[{"Success"}]')
+        if from_cache:
+            success_colored = helper.color_blue(f'[{"Cached"}]')
+        success_colored = success_colored.ljust(
+                self.formatting.fail_string_length)
+        self.formatting.update_success_string_length(len(success_colored))
+
+        input_colored = helper.color_cyan('Input')
+        input_data_formatted = input_data.ljust(self.formatting.input_justify)
+        self.formatting.update_input_justify(len(input_data))
+
+        check_mark = (helper.check_mark if not from_cache
+                      else helper.cache_check_mark)
         self.log.info(check_mark + '%s %s: %s %s: %s',
                       success_colored,
                       input_colored,
                       input_data_formatted,
-                      color_cyan('Output'),
-                      output_data_formatted)
+                      helper.color_cyan('Output'),
+                      output)
 
-    def print_failed(self, reason, queued_data: str):
-        string = '%s %s' % (color_cyan('Input:'), queued_data)
-        failed_string = color_red('[%s]' % reason.capitalize())
-        if len(failed_string) > self.fail_string_length:
-            self.fail_string_length = len(failed_string)
-        formatted = '%s%s %s' % (
-                x_mark, failed_string.ljust(
-                        max(self.fail_string_length,
-                            self.success_string_length)),
-                string)
+    def print_requeued(self, reason, queued_data: str,
+                       new_input_data: str = ''):
+        input_colored = helper.color_cyan('Input')
+        queued_data = self.get_formatted_input(queued_data)
+        new_input_colored = ''
+        if new_input_data:
+            new_input_colored = helper.color_cyan('New Input:')
+            queued_data = queued_data.ljust(
+                    self.formatting.input_justify)
+            self.formatting.update_input_justify(len(queued_data))
+
+        requeue_colored = helper.color_orange('[%s]' % reason.capitalize())
+        requeue_colored = requeue_colored.ljust(
+                max(self.formatting.fail_string_length,
+                    self.formatting.success_string_length))
+        self.formatting.update_fail_string_length(len(requeue_colored))
+
+        formatted = helper.reload_mark + '%s %s: %s %s %s' % (
+                requeue_colored,
+                input_colored,
+                queued_data,
+                new_input_colored,
+                new_input_data
+        )
+        self.log.info(formatted)
+
+    def print_failed(self, reason, queued_data: str, extra_info):
+        failed_string = helper.color_red('[%s]' % reason.capitalize())
+        self.formatting.update_fail_string_length(len(failed_string))
+        queued_data = self.get_formatted_input(queued_data)
+        queued_data = queued_data.ljust(self.formatting.input_justify)
+        string = '%s %s' % (helper.color_cyan('Input:'), queued_data)
+        reason_colored = helper.color_cyan('Reason')
+        failed_colored = failed_string.ljust(
+                max(self.formatting.fail_string_length,
+                    self.formatting.success_string_length))
+        formatted = '%s%s %s %s: %s' % (
+                helper.x_mark,
+                failed_colored,
+                string,
+                reason_colored,
+                extra_info
+        )
         self.log.info(formatted)
 
     @abstractmethod
@@ -447,25 +459,17 @@ class Job(abc.ABC):
             return None
         return obj
 
-    async def requeue(self, obj, reason=''):
-        await self.queue.put(obj)
-        if 'requeued' not in self.info:
-            self.info['requeued'] = Counter()
-        self.info.get('requeued')[reason or 'unspecified'] += 1
-
     def index(self, input_data, result):
-        hash_id = input_data if isinstance(input_data, (str, int)) else hash(
-                input_data)
-        self.data.get_job_cache(self, self.cache_name)[hash_id] = result
+        hash_id = helper.smart_hash(input_data)
+        self.cache[hash_id] = result
 
     def deindex(self, input_data):
-        hash_id = input_data if isinstance(input_data, (str, int)) else hash(
-                input_data)
-        return self.data.get_job_cache(self, self.cache_name).get(hash_id)
+        hash_id = helper.smart_hash(input_data)
+        return self.cache.get(hash_id)
 
     def increment_stat(self, n=1, name: str = None) -> None:
         """increment the count of whatever this Job is processing"""
-        self.stats[name or self.result_name] += n
+        self.stats[name or 'unique-%s' % self.result_name] += n
 
     def status(self, *strings: str):
         status = ' '.join(
@@ -497,10 +501,7 @@ class Job(abc.ABC):
                 if isinstance(obj, (list, set, dict)) else str(obj))
 
     def get_formatted_input(self, obj) -> str:
-        return obj
-
-    def set_primary(self):
-        self.primary = True
+        return str(obj)
 
     @abstractmethod
     async def queue_watcher(self):
@@ -538,13 +539,18 @@ class ForwardQueuingJob(Job, abc.ABC):
         successor.info['supersedes'] = self
 
     async def on_item_completed(self, obj):
+        # pause if successor has a full queue
         if self.successor.max_queue_size:
             while (self.successor.queue.qsize()
                    >= self.successor.max_queue_size):
                 self.status('paused')
                 await asyncio.sleep(10)
         await self.queue_successor(obj)
-        self.increment_stat(name=self.result_name)
+        cached = self.successor.cache.get(helper.smart_hash(obj))
+        if not cached:
+            self.increment_stat()
+        else:
+            self.increment_stat(name='uncached-%s' % self.result_name)
 
     async def queue_successor(self, data):
         await self.successor.add_to_queue(data)
@@ -632,19 +638,25 @@ class OutputJob(Job, abc.ABC):
         self.log.info('starting with %s items in output',
                       len(self.get_data(self.output)))
 
+    @property
+    def outputs(self):
+        return self.get_data(self.output)
+
     async def on_item_completed(self, o):
         if not self.output:
             self.log.info(o)
-        cache = self.get_data(self.output)
-        if o not in cache:
+        if o not in self.outputs:
             self.increment_stat()
-        if isinstance(cache, (CacheSet, set)):
-            cache.add(o)
-        elif isinstance(cache, (Deque, list)):
-            cache.append(o)
-        elif isinstance(cache, (Index, MutableMapping, EvictingIndex)):
+        else:
+            # self.increment_stat(name='uncached-%s' % self.result_name)
+            return
+        if isinstance(self.outputs, (CacheSet, set)):
+            self.outputs.add(o)
+        elif isinstance(self.outputs, (Deque, list)):
+            self.outputs.append(o)
+        elif isinstance(self.outputs, (Index, MutableMapping, EvictingIndex)):
             key, value = o
-            cache[key] = value
+            self.outputs[key] = value
 
     async def queue_watcher(self):
         self.log.debug('starting queue watcher')
@@ -696,8 +708,19 @@ class FailResponse(Response):
     """Processing failed and will consistently fail so it will not be added
     back to the queue and will not be processed in the future."""
 
-    def __init__(self, reason='failed', *args: object) -> None:
+    def __init__(self, reason='failed', extra_info='', *args: object) -> None:
         super().__init__(reason, *args)
+        self.extra_info = extra_info
+
+
+class ValidationRequeueResponse(Response):
+    """Processing received an invalid input that was fixed and requeued.
+    The original queued_data will be added to the failed list and the new one
+    will be added to the back of the queue"""
+
+    def __init__(self, new_input, reason='requeue', *args: object) -> None:
+        super().__init__(reason, *args)
+        self.new_input = new_input
 
 
 class NoRequeueResponse(Response):
