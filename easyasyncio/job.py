@@ -245,6 +245,7 @@ class Job(abc.ABC):
         self.log.debug('[worker%s] started', num)
         while self.context.running:
             result = None
+            from_cache = False
             self.status('waiting on queue')
             queued_data = await self.queue.get()
             self.last_queue_item_grab_time = time()
@@ -261,6 +262,7 @@ class Job(abc.ABC):
             if self.cache_enabled:
                 result = self.deindex(queued_data)
                 if result:
+                    from_cache = True
                     output = self.get_formatted_output(result)
                     if not self.print_successes:
                         self.log.info(
@@ -311,6 +313,8 @@ class Job(abc.ABC):
                 self.queue.task_done()
             else:
                 await self._on_work_processed(queued_data, result)
+                if self.print_successes:
+                    self.print_success(queued_data, result, from_cache)
             finally:
                 self.increment_stat(name='attempted')
 
@@ -322,16 +326,15 @@ class Job(abc.ABC):
             self.index(input_data, result)
         if self.auto_add_results:
             await self._post_process(result)
-        if self.print_successes:
-            self.print_success(input_data, result)
 
-    def print_success(self, input_data, result):
+    def print_success(self, input_data, result, from_cache=False):
         if len(repr(input_data)) > self.input_justify:
             self.input_justify = len(repr(input_data))
         output = self.get_formatted_output(result)
         if len(repr(output)) > self.result_justify:
             self.result_justify = len(repr(output))
-        success_colored = color_green('[Success]')
+        success_colored = color_green(
+                f'[{"Success" if not from_cache else "Cached"}]')
         if len(success_colored) > self.success_string_length:
             self.success_string_length = len(success_colored)
         success_colored = success_colored.ljust(self.fail_string_length)
