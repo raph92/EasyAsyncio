@@ -78,10 +78,10 @@ class Job(abc.ABC):
         self.stats = Counter()
         self.tasks = set()
         self.info: Dict[str, Any] = {
-                'max_queue_size': ('infinite' if max_queue_size == 0
-                                   else max_queue_size),
-                'max_workers':    max_concurrent,
-                'workers':        0
+            'max_queue_size': ('infinite' if max_queue_size == 0
+                               else max_queue_size),
+            'max_workers':    max_concurrent,
+            'workers':        0
         }
         self.logs: deque[str] = deque(maxlen=50)
         self.log = logging.getLogger(self.name)
@@ -106,8 +106,8 @@ class Job(abc.ABC):
 
         if len(self.__class__.__name__) > 15:
             self.log.warning(
-                    '[WARNING] Class names greater than 15 characters '
-                    'will cause logger formatting bugs.')
+                '[WARNING] Class names greater than 15 characters '
+                'will cause logger formatting bugs.')
 
     @property
     def queue(self) -> Queue:
@@ -186,7 +186,7 @@ class Job(abc.ABC):
 
     async def _create_queue_tasks(self):
         if (isinstance(self, ForwardQueuingJob)
-                or isinstance(self, OutputJob) and self.input_data):
+            or isinstance(self, OutputJob) and self.input_data):
             queue_task = self.loop.create_task(self.fill_queue())
             self.tasks.add(queue_task)
         queue_watcher_task = self.loop.create_task(self.queue_watcher())
@@ -256,7 +256,7 @@ class Job(abc.ABC):
         # noinspection PyBroadException
         try:
             result = result if result is not None else await self.do_work(
-                    queued_data)
+                queued_data)
         except ServerDisconnectedError:
             self.log.error('server disconnected')
             await self.queue.put(queued_data)
@@ -315,7 +315,7 @@ class Job(abc.ABC):
         if from_cache:
             success_colored = helper.color_blue(f'[{"Cached"}]')
         success_colored = success_colored.ljust(
-                self.formatting.fail_string_length)
+            self.formatting.fail_string_length)
         self.formatting.update_success_string_length(len(success_colored))
 
         input_colored = helper.color_cyan('Input')
@@ -339,40 +339,45 @@ class Job(abc.ABC):
         if new_input_data:
             new_input_colored = helper.color_cyan('New Input:')
             queued_data = queued_data.ljust(
-                    self.formatting.input_justify)
+                self.formatting.input_justify)
             self.formatting.update_input_justify(len(queued_data))
 
         requeue_colored = helper.color_orange('[%s]' % reason.capitalize())
         requeue_colored = requeue_colored.ljust(
-                max(self.formatting.fail_string_length,
-                    self.formatting.success_string_length))
+            max(self.formatting.fail_string_length,
+                self.formatting.success_string_length))
         self.formatting.update_fail_string_length(len(requeue_colored))
 
         formatted = helper.reload_mark + '%s %s: %s %s %s' % (
-                requeue_colored,
-                input_colored,
-                queued_data,
-                new_input_colored,
-                new_input_data
+            requeue_colored,
+            input_colored,
+            queued_data,
+            new_input_colored,
+            new_input_data
         )
         self.log.info(formatted)
 
-    def print_failed(self, reason, queued_data: str, extra_info):
+    def print_failed(self, reason, queued_data: str, extra_info=None):
         failed_string = helper.color_red('[%s]' % reason.capitalize())
         self.formatting.update_fail_string_length(len(failed_string))
+
         queued_data = self.get_formatted_input(queued_data)
+        if extra_info:
+            queued_data = self.formatting.format_input(queued_data)
         queued_data = queued_data.ljust(self.formatting.input_justify)
-        string = '%s %s' % (helper.color_cyan('Input:'), queued_data)
-        reason_colored = helper.color_cyan('Reason')
+
+        string = '%s %s' % (helper.color_cyan('Input') + ':', queued_data)
+        reason_colored = (
+            helper.color_cyan('Reason') + ':') if extra_info else ''
         failed_colored = failed_string.ljust(
-                max(self.formatting.fail_string_length,
-                    self.formatting.success_string_length))
-        formatted = '%s%s %s %s: %s' % (
-                helper.x_mark,
-                failed_colored,
-                string,
-                reason_colored,
-                extra_info
+            max(self.formatting.fail_string_length,
+                self.formatting.success_string_length))
+        formatted = '%s%s %s %s %s' % (
+            helper.x_mark,
+            failed_colored,
+            string,
+            reason_colored,
+            extra_info
         )
         self.log.info(formatted)
 
@@ -405,7 +410,7 @@ class Job(abc.ABC):
     async def _post_process(self, obj):
         if (isinstance(obj,
                        (list, set)) and not isinstance(
-                obj, str)):
+            obj, str)):
             for o in obj:
                 await self.on_item_completed(o)
                 await asyncio.sleep(0)
@@ -473,7 +478,7 @@ class Job(abc.ABC):
 
     def status(self, *strings: str):
         status = ' '.join(
-                [str(s) if not isinstance(s, str) else s for s in strings])
+            [str(s) if not isinstance(s, str) else s for s in strings])
         self.info['status'] = status
 
     def time_left(self):
@@ -494,7 +499,7 @@ class Job(abc.ABC):
         path = f'./diagnostics/{self.name}/{name}{diag.extension}'
         self.data.register(name, json, path, False, False)
         self.log.info(
-                'saved diagnostic info for %s -> %s' % (diag.input_data, path))
+            'saved diagnostic info for %s -> %s' % (diag.input_data, path))
 
     def get_formatted_output(self, obj) -> str:
         return (f'{len(obj)} {self.result_name}'
@@ -510,7 +515,7 @@ class Job(abc.ABC):
     @property
     def idle(self):
         return self.queue.qsize() == 0 and self.info.get(
-                'status') == 'waiting on queue'
+            'status') == 'waiting on queue'
 
     def __repr__(self):
         return self.name
@@ -565,8 +570,8 @@ class ForwardQueuingJob(Job, abc.ABC):
         while self.context.running:
             await asyncio.sleep(0.5)
             if (not self.queue_looped
-                    or not self.idle
-                    or not self.queue.empty()):
+                or not self.idle
+                or not self.queue.empty()):
                 continue
             predecessor_not_finished = (self.predecessor
                                         and not self.predecessor.finished)
@@ -577,7 +582,7 @@ class ForwardQueuingJob(Job, abc.ABC):
             if predecessor_not_finished or successor_not_finished:
                 continue
             if (time() - self.last_queue_item_grab_time
-                    > self.min_idle_time_before_finish):
+                > self.min_idle_time_before_finish):
                 await self.queue_finished()
                 break
 
@@ -667,7 +672,7 @@ class OutputJob(Job, abc.ABC):
             if self.predecessor and not self.predecessor.finished:
                 continue
             if (time() - self.last_queue_item_grab_time
-                    > self.min_idle_time_before_finish):
+                > self.min_idle_time_before_finish):
                 await self.queue_finished()
                 break
 
