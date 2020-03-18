@@ -290,6 +290,12 @@ class Job(abc.ABC):
                 self.log.info('❌%s', ur.extra_info)
             self.increment_stat(name=ur.reason)
             self.queue.task_done()
+        except Response as r:
+            self.print_failed(r.reason, queued_data)
+            self.increment_stat(name=r.reason)
+            self.queue.task_done()
+        except CancelledError as ce:
+            raise
         except Exception:
             self.increment_stat(name='uncaught-exceptions')
             self.log.exception('worker uncaught exception: %s',
