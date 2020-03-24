@@ -1,3 +1,4 @@
+import gc
 import logging
 import os
 from collections import UserDict
@@ -33,6 +34,7 @@ class DataManager(UserDict):
     filemanager = FileManager()
     directory = '.'
     do_not_display = []  # data items not to show in StatDisplay
+    do_not_save = []
     save_kwargs: 'Dict[str, Dict]' = {}
     load_kwargs: 'Dict[str, Dict]' = {}
 
@@ -41,7 +43,7 @@ class DataManager(UserDict):
         self.logger = logging.getLogger(type(self).__name__)
 
     def register(self, name, initial_data, path_to_file=directory,
-                 display=True, load=True, save_kwargs: dict = None,
+                 display=True, load=True, save=True, save_kwargs: dict = None,
                  load_kwargs: dict = None):
         """
         Register and load a data file. This file will be accessible to every
@@ -51,6 +53,8 @@ class DataManager(UserDict):
         self.logger.debug('registering "%s" -> "%s"', name, path_to_file)
         if not display:
             self.do_not_display.append(name)
+        if not save:
+            self.do_not_save.append(name)
         if save_kwargs:
             self.save_kwargs[name] = save_kwargs
         if load_kwargs:
@@ -67,14 +71,14 @@ class DataManager(UserDict):
             loaded_data = self.filemanager.smart_load(name, **load_kwargs)
             self.logger.debug('loaded data for "%s" -> %s', name,
                               (str(loaded_data)[:75] + '...') if len(
-                                      str(loaded_data)) > 75 else str(
-                                      loaded_data))
+                                  str(loaded_data)) > 75 else str(
+                                  loaded_data))
         self[name] = initial_data
         if loaded_data:
             self.load(initial_data, loaded_data, name)
 
     def register_cache(self, name, data_type, path_to_file=None, display=True,
-                       load=True, save_kwargs: dict = None,
+                       load=True, save=False, save_kwargs: dict = None,
                        load_kwargs: dict = None, directory='.') -> None:
         """
         The purpose of this function is to avoid having all objects loaded
@@ -97,6 +101,7 @@ class DataManager(UserDict):
             path_to_file: An optional file to save cached data to on exit
             display: Whether to show this in the StatDisplay
             load:  Whether to load existing data in `path_to_file `into the cache
+            save: Whether to auto save data
             save_kwargs: Kwargs to pass when saving via `FileManager`
             load_kwargs: Kwargs to pass when loading via `FileManager`
 
@@ -106,6 +111,7 @@ class DataManager(UserDict):
 
         self.logger.debug('registering "%s" -> "%s"', name, path_to_file)
         if not display: self.do_not_display.append(name)
+        if not save: self.do_not_save.append(name)
         if save_kwargs: self.save_kwargs[name] = save_kwargs
         if load_kwargs: self.load_kwargs[name] = load_kwargs
         else: load_kwargs = {}
@@ -120,10 +126,11 @@ class DataManager(UserDict):
                 loaded_data = self.filemanager.smart_load(name, **load_kwargs)
                 self.logger.debug('loaded data for "%s" -> %s', name,
                                   (str(loaded_data)[:75] + '...') if len(
-                                          str(loaded_data)) > 75 else str(
-                                          loaded_data))
+                                      str(loaded_data)) > 75 else str(
+                                      loaded_data))
         self._create_cache(data_type, loaded_data, name, directory)
         del loaded_data
+        gc.collect()
 
     def register_job_cache(self, job: 'Job', data_type: Union[set, list, dict],
                            name: str) -> None:
@@ -149,7 +156,7 @@ class DataManager(UserDict):
 
     def load(self, data, loaded_data, name):
         if isinstance(loaded_data, Iterable) and not isinstance(
-                loaded_data, dict):
+            loaded_data, dict):
             new_iterable = _numericize(loaded_data)
             loaded_data = new_iterable
         if isinstance(data, set):
@@ -180,7 +187,7 @@ class DataManager(UserDict):
     def save(self):
         for name, value in self.items():
             # check if this key has a file name
-            if name not in self.filemanager:
+            if name not in self.filemanager or name in self.do_not_save:
                 continue
             # if value is empty continue
             if not value:
@@ -196,7 +203,7 @@ class DataManager(UserDict):
         self.logger.debug('saving cache files')
         for name, value in self.items():
             save_kwargs = self.save_kwargs.get(name, {})
-            if name not in self.filemanager:
+            if name not in self.filemanager or name in self.do_not_save:
                 continue
             if isinstance(value, (CacheSet, Deque)):
                 self.filemanager.smart_save(name, list(value), mode='w+',
