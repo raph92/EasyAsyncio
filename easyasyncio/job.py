@@ -658,8 +658,9 @@ class OutputJob(Job, abc.ABC):
             self.log.info(o)
         if o not in self.outputs:
             self.increment_stat()
+
         else:
-            # self.increment_stat(name='uncached-%s' % self.result_name)
+            self.increment_stat(name='duplicate-%s' % self.result_name)
             return
         if isinstance(self.outputs, (CacheSet, set)):
             self.outputs.add(o)
