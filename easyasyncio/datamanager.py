@@ -78,7 +78,7 @@ class DataManager(UserDict):
             self.load(initial_data, loaded_data, name)
 
     def register_cache(self, name, data_type, path_to_file=None, display=True,
-                       load=True, save=False, save_kwargs: dict = None,
+                       load=True, save=True, save_kwargs: dict = None,
                        load_kwargs: dict = None, directory='.') -> None:
         """
         The purpose of this function is to avoid having all objects loaded
