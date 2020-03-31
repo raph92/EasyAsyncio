@@ -247,7 +247,8 @@ class Job(abc.ABC):
                 self.log.debug('work on %s has been cancelled', queued_data)
                 break
             finally:
-                self.increment_stat(name='attempted')
+                if not from_cache:
+                    self.increment_stat(name='attempted')
 
         self.info['workers'] -= 1
         self.log.debug('[worker%s] terminated', num)
