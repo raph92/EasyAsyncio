@@ -33,6 +33,7 @@ class Job(abc.ABC):
     data: 'DataManager'
     primary = False
     formatting = helper.LogFormatting()
+    min_idle_time_before_finish = 10
 
     def __init__(self,
                  input_data=None,
@@ -99,7 +100,6 @@ class Job(abc.ABC):
         self.queue_looped = False
         self.finished = False
         self.last_queue_item_grab_time = time()
-        self.min_idle_time_before_finish = 5
         self.predecessor: 'Optional[Job]' = None
         self.successor: 'Optional[Job]' = None
         self.print_successes = print_successes
@@ -583,8 +583,6 @@ class ForwardQueuingJob(Job, abc.ABC):
             predecessor_not_finished = (self.predecessor
                                         and not self.predecessor.finished)
             successor_not_finished = (self.successor
-                                      and isinstance(self.successor,
-                                                     BackwardQueuingJob)
                                       and not self.successor.finished)
             if predecessor_not_finished or successor_not_finished:
                 continue
@@ -697,6 +695,10 @@ class JobLogHandler(logging.Handler):
 
 
 class QueueLooped:
+    pass
+
+
+class Terminate:
     pass
 
 
