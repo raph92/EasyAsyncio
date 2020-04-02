@@ -28,7 +28,7 @@ class AutoSaveExample(OutputJob):
         if random.randint(0, 5) == 5:
             randint = random.randint(5001, 10000)
             # self.log.info('adding %s to queue', randint)
-            await self.queue.put(randint)
+            await self.add_to_queue(randint)
             self.increment_stat(name='post-fill')
         return sum_of_nums
 

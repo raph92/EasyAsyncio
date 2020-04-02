@@ -1,5 +1,6 @@
 import abc
 import asyncio
+import datetime
 import logging
 from abc import abstractmethod
 from asyncio import (AbstractEventLoop, Semaphore, Future, Queue,
@@ -99,10 +100,10 @@ class Job(abc.ABC):
 
         self.queue_looped = False
         self.finished = False
-        self.last_queue_item_grab_time = time()
         self.predecessor: 'Optional[Job]' = None
         self.successor: 'Optional[Job]' = None
         self.print_successes = print_successes
+        self._to_do_list = []
 
         if len(self.__class__.__name__) > 15:
             self.log.warning(
@@ -128,6 +129,11 @@ class Job(abc.ABC):
     @property
     def name(self):
         return self.__class__.__name__
+
+    @property
+    def to_do_list(self):
+        return [t for t in self._to_do_list if
+                not isinstance(t, (QueueLooped, Terminate))]
 
     def initialize(self, context: Context):
         """
@@ -185,8 +191,10 @@ class Job(abc.ABC):
             await self.on_finish()
 
     async def _create_queue_tasks(self):
-        if (isinstance(self, ForwardQueuingJob)
-            or isinstance(self, OutputJob) and self.input_data):
+        is_fqj = isinstance(self, ForwardQueuingJob)
+        has_input_data = isinstance(self, OutputJob) and self.input_data
+        should_fll_queue = (is_fqj or has_input_data)
+        if should_fll_queue:
             queue_task = self.loop.create_task(self.fill_queue())
             self.tasks.add(queue_task)
         queue_watcher_task = self.loop.create_task(self.queue_watcher())
@@ -226,14 +234,13 @@ class Job(abc.ABC):
             from_cache = False
             self.status('waiting on queue')
             queued_data = await self.queue.get()
-            self.last_queue_item_grab_time = time()
             self.log.debug('[worker%s] retrieved queued data "%s"',
                            num, queued_data)
             self.status('working')
             if isinstance(queued_data, QueueLooped):
                 self.queue_looped = True
                 continue
-            if queued_data is False:
+            if isinstance(queued_data, Terminate):
                 break
             if queued_data in self.failed_inputs:
                 continue
@@ -266,6 +273,7 @@ class Job(abc.ABC):
             self.failed_inputs.add(queued_data)
             self.print_failed(fr.reason, queued_data, fr.extra_info)
             self.queue.task_done()
+            self._to_do_list.remove(queued_data)
         except RequeueResponse as rr:
             if self.auto_requeue:
                 await self.queue.put(queued_data)
@@ -284,6 +292,7 @@ class Job(abc.ABC):
             self.log.debug('%s NoRequeue reason: %s', queued_data,
                            nrr.reason)
             self.queue.task_done()
+            self._to_do_list.remove(queued_data)
         except UnknownResponse as ur:
             self.diag_save(ur.diagnostics)
             self.print_failed(ur.reason, queued_data)
@@ -291,11 +300,13 @@ class Job(abc.ABC):
                 self.log.info('❌%s', ur.extra_info)
             self.increment_stat(name=ur.reason)
             self.queue.task_done()
+            self._to_do_list.remove(queued_data)
         except Response as r:
             self.print_failed(r.reason, queued_data)
             self.increment_stat(name=r.reason)
             self.queue.task_done()
-        except CancelledError as ce:
+            self._to_do_list.remove(queued_data)
+        except CancelledError:
             raise
         except Exception:
             self.increment_stat(name='uncaught-exceptions')
@@ -303,8 +314,10 @@ class Job(abc.ABC):
                                dict(queued_data=queued_data))
             self.with_errors = True
             self.queue.task_done()
+            self._to_do_list.remove(queued_data)
         else:
             self.queue.task_done()
+            self._to_do_list.remove(queued_data)
             if self.auto_add_results:
                 await self._post_process(result)
             if self.cache_enabled and not from_cache:
@@ -415,9 +428,8 @@ class Job(abc.ABC):
         """
 
     async def _post_process(self, obj):
-        if (isinstance(obj,
-                       (list, set)) and not isinstance(
-            obj, str)):
+        is_iterable = isinstance(obj, (list, set)) and not isinstance(obj, str)
+        if is_iterable:
             for o in obj:
                 await self.on_item_completed(o)
                 await asyncio.sleep(0)
@@ -439,6 +451,7 @@ class Job(abc.ABC):
         self.finished = True
         self.end_time = time()
         self.status('finished')
+        self.log.info('done at %s', datetime.datetime.now())
         self.log.debug('finished!')
         if self.with_errors:
             self.log.warning('Some errors occurred. See logs')
@@ -451,18 +464,19 @@ class Job(abc.ABC):
         """Tells this Job to stop watching the queue and close"""
         for index in range(self.info['workers']):
             try:
-                await self.add_to_queue(False)
+                await self.add_to_queue(Terminate())
             except QueueFull:
                 while not self.queue.empty():
                     await self.queue.get()
 
     async def add_to_queue(self, obj):
-        if obj is False:
+        if isinstance(obj, Terminate):
             optional = obj
         else:
             optional = await self.queue_filter(obj)
         if optional is not None:
             await self.queue.put(optional)
+            self._to_do_list.append(optional)
 
     # noinspection PyMethodMayBeStatic
     async def queue_filter(self, obj):
@@ -488,6 +502,25 @@ class Job(abc.ABC):
             [str(s) if not isinstance(s, str) else s for s in strings])
         self.info['status'] = status
 
+    async def queue_watcher(self):
+        while not self.queue_looped:
+            await asyncio.sleep(1)
+        self.log.debug('starting queue watcher')
+        while self.context.running:
+            await asyncio.sleep(0.05)
+            predecessor_not_done = (self.predecessor and
+                                    any(self.predecessor.to_do_list))
+            if any(self.to_do_list) or predecessor_not_done:
+                continue
+            has_successor = self.successor and isinstance(self.successor,
+                                                          BackwardQueuingJob)
+            successor_not_done = (has_successor and
+                                  any(self.successor.to_do_list))
+            if successor_not_done:
+                continue
+            await self.queue_finished()
+            break
+
     def time_left(self):
         elapsed_time = self.context.stats.elapsed_time
         per_second = self.context.stats[self.name] / elapsed_time
@@ -512,12 +545,9 @@ class Job(abc.ABC):
         return (f'{len(obj)} {self.result_name}'
                 if isinstance(obj, (list, set, dict)) else str(obj))
 
-    def get_formatted_input(self, obj) -> str:
+    @staticmethod
+    def get_formatted_input(obj) -> str:
         return str(obj)
-
-    @abstractmethod
-    async def queue_watcher(self):
-        pass
 
     @property
     def idle(self):
@@ -572,25 +602,6 @@ class ForwardQueuingJob(Job, abc.ABC):
         self.log.debug('adding QueueLooped() to successor')
         await self.successor.queue.put(QueueLooped())
 
-    async def queue_watcher(self):
-        self.log.debug('starting queue watcher')
-        while self.context.running:
-            await asyncio.sleep(0.5)
-            if (not self.queue_looped
-                or not self.idle
-                or not self.queue.empty()):
-                continue
-            predecessor_not_finished = (self.predecessor
-                                        and not self.predecessor.finished)
-            successor_not_finished = (self.successor
-                                      and not self.successor.finished)
-            if predecessor_not_finished or successor_not_finished:
-                continue
-            if (time() - self.last_queue_item_grab_time
-                > self.min_idle_time_before_finish):
-                await self.queue_finished()
-                break
-
 
 class BackwardQueuingJob(Job, abc.ABC):
     """
@@ -624,17 +635,6 @@ class BackwardQueuingJob(Job, abc.ABC):
     async def queue_predecessor(self, data):
         await self.predecessor.queue.put(data)
 
-    async def queue_watcher(self):
-        self.log.debug('starting queue watcher')
-        while self.context.running:
-            await asyncio.sleep(0.5)
-            if not self.queue_looped or not self.idle:
-                continue
-            if self.predecessor and not self.predecessor.finished:
-                continue
-            await self.queue_finished()
-            break
-
 
 class OutputJob(Job, abc.ABC):
     """This :class:`Job` will pass all completed items to an output file"""
@@ -667,19 +667,6 @@ class OutputJob(Job, abc.ABC):
         elif isinstance(self.outputs, (Index, MutableMapping, EvictingIndex)):
             key, value = o
             self.outputs[key] = value
-
-    async def queue_watcher(self):
-        self.log.debug('starting queue watcher')
-        while self.context.running:
-            await asyncio.sleep(0.5)
-            if not self.queue_looped or not self.idle:
-                continue
-            if self.predecessor and not self.predecessor.finished:
-                continue
-            if (time() - self.last_queue_item_grab_time
-                > self.min_idle_time_before_finish):
-                await self.queue_finished()
-                break
 
 
 class JobLogHandler(logging.Handler):

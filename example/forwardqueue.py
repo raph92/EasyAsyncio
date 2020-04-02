@@ -4,7 +4,7 @@ import logging
 import random
 
 from easyasyncio import JobManager, Job
-from easyasyncio.job import ForwardQueuingJob, OutputJob
+from easyasyncio.job import ForwardQueuingJob
 
 
 class QueueJob(ForwardQueuingJob):
@@ -13,25 +13,26 @@ class QueueJob(ForwardQueuingJob):
         super().__init__(successor, **kwargs)
 
     async def do_work(self, num):
-        # do something meaning full here
+        # do something meaningful here
         await asyncio.sleep(0.01)
         self.log.debug('sending "%s" to successor', num)
-        if random.randint(0, 3) == 1:
-            return
-        return list(range(num))
+        return list(range(num + 1))
 
     async def on_finish(self):
         await super().on_finish()
         self.log.info('done at %s', datetime.datetime.now())
 
 
-class PrintJob(OutputJob):
+class PrintJob(Job):
     """print numbers asynchronously"""
+
+    async def on_item_completed(self, obj):
+        print(obj)
 
     async def do_work(self, number):
         """this logic gets called after an
         object is retrieved from the queue"""
-        await asyncio.sleep(random.random())
+        await asyncio.sleep(random.randint(0, 5))
         return number
 
     async def on_finish(self):
