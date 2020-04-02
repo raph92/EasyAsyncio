@@ -7,7 +7,7 @@ from asyncio import (AbstractEventLoop, Semaphore, Future, Queue,
 from collections import deque, Counter
 from time import time
 from typing import (Set, Any, MutableMapping, TYPE_CHECKING, Dict,
-                    Optional)
+                    Optional, Union)
 
 import attr
 from aiohttp import ServerDisconnectedError
@@ -47,7 +47,7 @@ class Job(abc.ABC):
                  log_level=logging.INFO,
                  auto_requeue=True,
                  exit_on_queue_finish=True,
-                 print_successes=False) -> None:
+                 print_successes=True) -> None:
         """
 
         Args:
@@ -493,7 +493,7 @@ class Job(abc.ABC):
         per_second = self.context.stats[self.name] / elapsed_time
         return round((self.queue.qsize()) / per_second)
 
-    def get_data(self, name):
+    def get_data(self, name) -> Union[CacheSet, Index, Deque]:
         return self.data.get(name)
 
     def diag_save(self, diag: 'Diagnostics', name=None):

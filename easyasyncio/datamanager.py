@@ -2,12 +2,11 @@ import gc
 import logging
 import os
 from collections import UserDict
-from typing import Sized, Iterable, Dict, Union, TYPE_CHECKING
+from typing import (Sized, Iterable, Dict, Union, TYPE_CHECKING, Mapping)
 
 from diskcache import Index, Deque
-from easyfilemanager import FileManager
-
 from easyasyncio.cachetypes import CacheSet, EvictingIndex
+from easyfilemanager import FileManager
 
 if TYPE_CHECKING:
     from easyasyncio import Job
@@ -38,18 +37,23 @@ class DataManager(UserDict):
     save_kwargs: 'Dict[str, Dict]' = {}
     load_kwargs: 'Dict[str, Dict]' = {}
 
-    def __init__(self, *args, **kwargs: dict) -> None:
+    def __init__(self, session_id: str, *args, **kwargs: dict) -> None:
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger(type(self).__name__)
+        self.session_id = session_id
 
-    def register(self, name, initial_data, path_to_file=directory,
-                 display=True, load=True, save=True, save_kwargs: dict = None,
-                 load_kwargs: dict = None):
+    def register(self, name, initial_data: Union[set, list, Mapping],
+                 path_to_file=directory, display=True, load=True, save=True,
+                 save_kwargs: dict = None, load_kwargs: dict = None):
         """
         Register and load a data file. This file will be accessible to every
         AsyncWorker through context.data[name]
         """
         # whether to display this key's value in get_data_string()
+        if isinstance(initial_data, type):
+            raise TypeError(
+                'initial_data argument must be an object, not type')
+        name = name + self.session_id
         self.logger.debug('registering "%s" -> "%s"', name, path_to_file)
         if not display:
             self.do_not_display.append(name)
@@ -77,15 +81,16 @@ class DataManager(UserDict):
         if loaded_data:
             self.load(initial_data, loaded_data, name)
 
-    def register_cache(self, name, data_type, path_to_file=None, display=True,
-                       load=True, save=True, save_kwargs: dict = None,
-                       load_kwargs: dict = None, directory='.') -> None:
+    def register_cache(self, name, initial_data: Union[set, list, Mapping],
+                       path_to_file=None, display=True, load=True, save=True,
+                       save_kwargs: dict = None, load_kwargs: dict = None,
+                       directory='.', append_session_id=True) -> None:
         """
         The purpose of this function is to avoid having all objects loaded
         in memory and instead use a diskcache for storing/accessing objects.
 
         This function will create a cache at './cache/**name**' and register
-        the file passed to `path_to_file` for autosaving.
+        the file passed to `path_to_file` for auto-saving.
 
         If `path_to_file` is None, then data will only be saved to the cache
 
@@ -97,18 +102,22 @@ class DataManager(UserDict):
         Args:
             directory: The name of the folder in ./cache/ to save this cache to
             name: The name to access this cache by `self.get(name)`
-            data_type: The kind of cache to save data to (set, list, dict)
+            initial_data: The kind of cache to save data to (set, list, dict)
             path_to_file: An optional file to save cached data to on exit
             display: Whether to show this in the StatDisplay
             load:  Whether to load existing data in `path_to_file `into the cache
             save: Whether to auto save data
             save_kwargs: Kwargs to pass when saving via `FileManager`
             load_kwargs: Kwargs to pass when loading via `FileManager`
-
+            append_session_id: Add the session_id to the name variable
         Returns:
 
         """
-
+        if isinstance(initial_data, type):
+            raise TypeError(
+                'initial_data argument must be an object, not type')
+        if append_session_id:
+            name = name + self.session_id
         self.logger.debug('registering "%s" -> "%s"', name, path_to_file)
         if not display: self.do_not_display.append(name)
         if not save: self.do_not_save.append(name)
@@ -128,7 +137,7 @@ class DataManager(UserDict):
                                   (str(loaded_data)[:75] + '...') if len(
                                       str(loaded_data)) > 75 else str(
                                       loaded_data))
-        self._create_cache(data_type, loaded_data, name, directory)
+        self._create_cache(initial_data, loaded_data, name, directory)
         del loaded_data
         gc.collect()
 
@@ -136,7 +145,7 @@ class DataManager(UserDict):
                            name: str) -> None:
         full_name = f'{job.name}/{name}'
         self.register_cache(full_name, data_type, directory=job.name,
-                            display=False, load=False)
+                            display=False, load=False, append_session_id=False)
 
     def _create_cache(self, initial_data, loaded_data, name, directory):
         if '/' in name:
@@ -166,8 +175,12 @@ class DataManager(UserDict):
         elif isinstance(data, dict):
             self[name].update(loaded_data)
 
+    def get(self, k, optional=None):
+        k = k + self.session_id
+        return super().get(k, optional)
+
     def get_job_cache(self, job: 'Job', name: str):
-        return self.get(f'{job.name}/{name}')
+        return self[f'{job.name}/{name}']
 
     def file_update(self, name, data):
         self[name] = data

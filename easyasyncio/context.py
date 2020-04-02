@@ -20,7 +20,6 @@ class Context:
     save_thread: 'AutoSave' = None
     stats_thread: 'StatsDisplay' = None
     session: ClientSession = None
-    data = DataManager()
 
     def __init__(self, job_manager: 'JobManager') -> None:
         self.stats = Stats(self)
@@ -28,6 +27,9 @@ class Context:
         self.queues = QueueManager(self)
         self.save_thread = AutoSave(self)
         self.stats_thread = StatsDisplay(self)
+        from random import randint
+        self.session_id = str(randint(100000, 999999))
+        self.data = DataManager(self.session_id)
 
     @property
     def running(self):

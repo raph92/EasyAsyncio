@@ -16,7 +16,7 @@ class CacheSet:
         self.index = Index(directory)
         self.update(*iterable)
 
-    def add(self, obj):
+    def add(self, obj: object):
         if not isinstance(obj, Hashable):
             raise TypeError(f'{type(obj)} is not Hashable',
                             f'{str(obj)[:100]}...')

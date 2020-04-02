@@ -39,15 +39,16 @@ class JobManager(Thread):
 
     def __init__(self, auto_save=True, use_session=False):
         super().__init__()
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        self.use_session = use_session
         self.auto_save = auto_save
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         # self.loop.set_debug(True)
         self.loop = asyncio.get_event_loop()
         self.context = Context(self)
-        self.use_session = use_session
+        self.logger = logger.getChild('JobManager')
+        self.logger.info('Session id: %s', self.context.session_id)
         signal.signal(signal.SIGINT, self.cancel_all_tasks)
         signal.signal(signal.SIGTERM, self.cancel_all_tasks)
-        self.logger = logger.getChild('JobManager')
         # self.logger.addHandler(LoopManagerLoggingHandler(self))
 
     def start_graphics(self):
