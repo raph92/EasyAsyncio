@@ -101,8 +101,6 @@ class JobManager(Thread):
 
     def add_jobs(self, *jobs: 'Job'):
         for job in jobs:
-            if not job:
-                continue
             if not isinstance(job, Job):
                 raise TypeError('%s is not a Job' % type(job))
             job.initialize(self.context)

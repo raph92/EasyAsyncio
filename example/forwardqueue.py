@@ -1,13 +1,11 @@
 import asyncio
-import datetime
 import logging
-import random
 
 from easyasyncio import JobManager, Job
 from easyasyncio.job import ForwardQueuingJob
 
 
-class QueueJob(ForwardQueuingJob):
+class AddOneJob(ForwardQueuingJob):
 
     def __init__(self, successor: Job, **kwargs) -> None:
         super().__init__(successor, **kwargs)
@@ -16,11 +14,31 @@ class QueueJob(ForwardQueuingJob):
         # do something meaningful here
         await asyncio.sleep(0.01)
         self.log.debug('sending "%s" to successor', num)
-        return list(range(num + 1))
+        return num + 1
 
-    async def on_finish(self):
-        await super().on_finish()
-        self.log.info('done at %s', datetime.datetime.now())
+
+class AddTwoJob(ForwardQueuingJob):
+
+    def __init__(self, successor: Job, **kwargs) -> None:
+        super().__init__(successor, **kwargs)
+
+    async def do_work(self, num):
+        # do something meaningful here
+        await asyncio.sleep(0.01)
+        self.log.debug('sending "%s" to successor', num)
+        return num + 2
+
+
+class TimesTwoJob(ForwardQueuingJob):
+
+    def __init__(self, successor: Job, **kwargs) -> None:
+        super().__init__(successor, **kwargs)
+
+    async def do_work(self, num):
+        # do something meaningful here
+        await asyncio.sleep(0.01)
+        self.log.debug('sending "%s" to successor', num)
+        return num * 2
 
 
 class PrintJob(Job):
@@ -32,25 +50,26 @@ class PrintJob(Job):
     async def do_work(self, number):
         """this logic gets called after an
         object is retrieved from the queue"""
-        await asyncio.sleep(random.randint(0, 5))
+        await asyncio.sleep(0.01)
         return number
-
-    async def on_finish(self):
-        await super().on_finish()
-        self.log.info('done at %s', datetime.datetime.now())
 
 
 manager = JobManager()
 
-consumer = PrintJob(max_concurrent=15,
-                    max_queue_size=5, log_level=logging.DEBUG,
-                    print_successes=True)
-producer = QueueJob(consumer,
-                    input_data=range(10, 11),
-                    max_concurrent=15, log_level=logging.DEBUG,
-                    print_successes=True)
+print_job = PrintJob(max_concurrent=15,
+                     max_queue_size=5, log_level=logging.DEBUG,
+                     print_successes=False)
+times_two = TimesTwoJob(print_job,
+                        input_data=[],
+                        max_concurrent=15, log_level=logging.DEBUG)
+add_two = AddTwoJob(times_two,
+                    input_data=[],
+                    max_concurrent=15, log_level=logging.DEBUG)
+add_one = AddOneJob(add_two,
+                    input_data=range(1, 50 + 1),
+                    max_concurrent=15, log_level=logging.DEBUG)
 
-manager.add_jobs(producer, consumer)
+manager.add_jobs(print_job, times_two, add_two, add_one)
 manager.start()
 
 # manager.start_graphics()

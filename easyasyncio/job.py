@@ -99,12 +99,12 @@ class Job(abc.ABC):
         self.exit_on_queue_finish = exit_on_queue_finish
 
         self.queue_looped = False
-        self.finished = False
         self.predecessor: 'Optional[Job]' = None
         self.successor: 'Optional[Job]' = None
         self.print_successes = print_successes
         self._to_do_list = []
-
+        self._in_progress = 0
+        self.initialized = False
         if len(self.__class__.__name__) > 15:
             self.log.warning(
                 '[WARNING] Class names greater than 15 characters '
@@ -135,6 +135,18 @@ class Job(abc.ABC):
         return [t for t in self._to_do_list if
                 not isinstance(t, (QueueLooped, Terminate))]
 
+    @property
+    def finished(self):
+        predecessor_done = (not self.predecessor or
+                            not any(self.predecessor.to_do_list))
+        has_successor = self.successor and isinstance(self.successor,
+                                                      BackwardQueuingJob)
+        successor_done = (not has_successor
+                          or not any(self.successor.to_do_list))
+        siblings_done = predecessor_done and successor_done
+        tasks_done = not len(self.to_do_list) and not self.queue.qsize()
+        return siblings_done and tasks_done and not self._in_progress
+
     def initialize(self, context: Context):
         """
         Set all of the context-dependent variables
@@ -151,6 +163,7 @@ class Job(abc.ABC):
             context.data.register_job_cache(self, dict(), self.cache_name)
         self.data.register_cache('%s.failed' % self.name, set(),
                                  './data/failed/%s.txt' % self.name)
+        self.initialized = True
 
     def _initialize_config(self):
         self.context.queues.new(self.name)
@@ -202,6 +215,8 @@ class Job(abc.ABC):
 
     async def fill_queue(self):
         """implement the queue filling logic here"""
+        if not self.input_data or not any(self.input_data):
+            return
         for d in self.input_data:
             if d in self.failed_inputs:
                 continue
@@ -234,28 +249,33 @@ class Job(abc.ABC):
             from_cache = False
             self.status('waiting on queue')
             queued_data = await self.queue.get()
-            self.log.debug('[worker%s] retrieved queued data "%s"',
-                           num, queued_data)
-            self.status('working')
-            if isinstance(queued_data, QueueLooped):
-                self.queue_looped = True
-                continue
-            if isinstance(queued_data, Terminate):
-                break
-            if queued_data in self.failed_inputs:
-                continue
-            if self.cache_enabled:
-                result = self.deindex(queued_data)
-                if result:
-                    from_cache = True
             try:
-                await self._post_do_work(from_cache, queued_data, result)
-            except CancelledError:
-                self.log.debug('work on %s has been cancelled', queued_data)
-                break
+                self._in_progress += 1
+                self.log.debug('[worker%s] retrieved queued data "%s"',
+                               num, queued_data)
+                self.status('working')
+                if isinstance(queued_data, QueueLooped):
+                    self.queue_looped = True
+                    continue
+                if isinstance(queued_data, Terminate):
+                    break
+                if queued_data in self.failed_inputs:
+                    continue
+                if self.cache_enabled:
+                    result = self.deindex(queued_data)
+                    if result:
+                        from_cache = True
+                try:
+                    await self._post_do_work(from_cache, queued_data, result)
+                except CancelledError:
+                    self.log.debug('work on %s has been cancelled',
+                                   queued_data)
+                    break
+                finally:
+                    if not from_cache:
+                        self.increment_stat(name='attempted')
             finally:
-                if not from_cache:
-                    self.increment_stat(name='attempted')
+                self._in_progress -= 1
 
         self.info['workers'] -= 1
         self.log.debug('[worker%s] terminated', num)
@@ -448,7 +468,6 @@ class Job(abc.ABC):
 
     async def on_finish(self):
         """Called when all tasks are finished"""
-        self.finished = True
         self.end_time = time()
         self.status('finished')
         self.log.info('done at %s', datetime.datetime.now())
@@ -460,14 +479,20 @@ class Job(abc.ABC):
         self.log.debug('finished queueing')
         await self.queue.put(QueueLooped())
 
-    async def queue_finished(self):
+    async def terminate(self):
         """Tells this Job to stop watching the queue and close"""
+        self.log.debug('called terminate')
         for index in range(self.info['workers']):
             try:
                 await self.add_to_queue(Terminate())
             except QueueFull:
                 while not self.queue.empty():
                     await self.queue.get()
+                await self.add_to_queue(Terminate())
+
+        if isinstance(self, ForwardQueuingJob):
+            if isinstance(self.successor, (OutputJob, Job)):
+                self.successor.queue_looped = True
 
     async def add_to_queue(self, obj):
         if isinstance(obj, Terminate):
@@ -508,17 +533,11 @@ class Job(abc.ABC):
         self.log.debug('starting queue watcher')
         while self.context.running:
             await asyncio.sleep(0.05)
-            predecessor_not_done = (self.predecessor and
-                                    any(self.predecessor.to_do_list))
-            if any(self.to_do_list) or predecessor_not_done:
+
+            if not self.finished:
                 continue
-            has_successor = self.successor and isinstance(self.successor,
-                                                          BackwardQueuingJob)
-            successor_not_done = (has_successor and
-                                  any(self.successor.to_do_list))
-            if successor_not_done:
-                continue
-            await self.queue_finished()
+
+            await self.terminate()
             break
 
     def time_left(self):
@@ -580,6 +599,12 @@ class ForwardQueuingJob(Job, abc.ABC):
         self.info['precedes'] = successor
         successor.info['supersedes'] = self
 
+    def initialize(self, context: Context):
+        if not self.successor.initialized:
+            raise Exception('%s has not been initialized in '
+                            'JobManager#add_jobs' % self.successor)
+        super().initialize(context)
+
     async def on_item_completed(self, obj):
         # pause if successor has a full queue
         if self.successor.max_queue_size:
@@ -623,6 +648,12 @@ class BackwardQueuingJob(Job, abc.ABC):
         self.predecessor.successor = self
         self.info['supersedes'] = predecessor
 
+    def initialize(self, context: Context):
+        if not self.predecessor.initialized:
+            raise Exception('%s has not been initialized in '
+                            'JobManager#add_jobs' % self.predecessor)
+        super().initialize(context)
+
     async def on_item_completed(self, obj):
         if self.predecessor and self.predecessor.max_queue_size:
             while (self.predecessor.queue.qsize()
@@ -641,6 +672,10 @@ class OutputJob(Job, abc.ABC):
 
     def __init__(self, output: Optional[str] = '', **kwargs) -> None:
         self.output = output
+        if not self.outputs:
+            raise Exception('output has not been registered with '
+                            'DataManager#register or '
+                            'DataManager#register_cache')
         super().__init__(**kwargs)
 
     def initialize(self, context: Context):
