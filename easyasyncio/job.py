@@ -672,16 +672,16 @@ class OutputJob(Job, abc.ABC):
 
     def __init__(self, output: Optional[str] = '', **kwargs) -> None:
         self.output = output
-        if not self.outputs:
-            raise Exception('output has not been registered with '
-                            'DataManager#register or '
-                            'DataManager#register_cache')
         super().__init__(**kwargs)
 
     def initialize(self, context: Context):
         super().initialize(context)
         self.log.info('starting with %s items in output',
                       len(self.get_data(self.output)))
+        if not self.outputs:
+            raise Exception('output has not been registered with '
+                            'DataManager#register or '
+                            'DataManager#register_cache')
 
     @property
     def outputs(self):
