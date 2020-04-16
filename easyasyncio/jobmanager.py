@@ -2,6 +2,7 @@ import asyncio
 import collections
 import logging
 import signal
+import sys
 import time
 from asyncio import Future, AbstractEventLoop, QueueFull
 from threading import Thread
@@ -70,15 +71,16 @@ class JobManager(Thread):
             self.logger.exception(e)
 
     def run(self):
+        self.logger.debug('[Arguments] %s', sys.argv)
         self.running = True
         if not any(self.jobs):
             raise Exception('No jobs to start.')
         try:
             if self.auto_save:
                 self.scheduled_tasks.add(self.loop.create_task(
-                        self.context.save_thread.run()))
+                    self.context.save_thread.run()))
             self.scheduled_tasks.add(self.loop.create_task(
-                    self.context.stats_thread.run()))
+                self.context.stats_thread.run()))
             self.status = 'Running'
             self.logger.info('Starting %s jobs', len(self.jobs))
             self.context.stats.start_time = time.time()
@@ -86,7 +88,7 @@ class JobManager(Thread):
                 self.context.session = ClientSession(loop=self.loop,
                                                      headers=HEADERS)
             self.loop.run_until_complete(
-                    asyncio.gather(*self.jobs, loop=self.loop))
+                asyncio.gather(*self.jobs, loop=self.loop))
             if not self.cancelling_all_tasks:
                 self.succeeded = True
             self.finished = True
@@ -117,7 +119,7 @@ class JobManager(Thread):
             self.status = 'Stopping...'
         try:
             if (self.use_session and self.context.session and
-                    not self.context.session.closed):
+                not self.context.session.closed):
                 self.loop.create_task(self.context.session.close())
             self.cancel_all_tasks(None, None)
             for task in self.scheduled_tasks:
@@ -156,7 +158,7 @@ class JobManager(Thread):
                 task.cancel()
             except RuntimeError:
                 self.logger.exception(
-                        'Error while cancelling worker in job {}', job.name)
+                    'Error while cancelling worker in job {}', job.name)
         try:
             job.queue.put_nowait(False)
         except QueueFull:
