@@ -740,6 +740,18 @@ class RequeueResponse(Response):
         super().__init__(reason, *args)
 
 
+class FutureResponse(Response):
+    """The input data was sent to another worker and will be returned later."""
+
+    def __init__(self, reason='awaiting', secondary_reason='',
+                 obj: object = None, job: Union[int, Job] = None,
+                 *args) -> None:
+        super().__init__(reason, *args)
+        self.secondary_reason = secondary_reason
+        self.obj = obj
+        self.job = job
+
+
 class FailResponse(Response):
     """Processing failed and will consistently fail so it will not be added
     back to the queue and will not be processed in the future."""

@@ -104,6 +104,7 @@ class JobManager(Thread):
             if not isinstance(job, Job):
                 raise TypeError('%s is not a Job' % type(job))
             job.initialize(self.context)
+            self.context.jobs.append(job)
             t = self.loop.create_task(job.run())
             self.jobs.add(t)
 

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Set
+from typing import TYPE_CHECKING, List
 
 from aiohttp import ClientSession
 
@@ -16,7 +16,7 @@ class Context:
     """The purpose of this class is to access all important
     objects from one place"""
     queues: QueueManager
-    jobs: 'Set[Job]' = set()
+    jobs: 'List[Job]' = []
     save_thread: 'AutoSave' = None
     stats_thread: 'StatsDisplay' = None
     session: ClientSession = None
@@ -42,3 +42,6 @@ class Context:
     @property
     def loop_manager(self):
         return self.manager
+
+    def get_job(self, index: int):
+        return self.jobs[::-1][index - 1]
