@@ -5,8 +5,9 @@ from collections import UserDict
 from typing import (Sized, Iterable, Dict, Union, TYPE_CHECKING, Mapping)
 
 from diskcache import Index, Deque
-from easyasyncio.cachetypes import CacheSet, EvictingIndex
 from easyfilemanager import FileManager
+
+from easyasyncio.cachetypes import CacheSet, EvictingIndex
 
 if TYPE_CHECKING:
     from easyasyncio import Job
@@ -34,6 +35,7 @@ class DataManager(UserDict):
     directory = '.'
     do_not_display = []  # data items not to show in StatDisplay
     do_not_save = []
+    do_not_append_session_id = []
     save_kwargs: 'Dict[str, Dict]' = {}
     load_kwargs: 'Dict[str, Dict]' = {}
 
@@ -42,9 +44,20 @@ class DataManager(UserDict):
         self.logger = logging.getLogger(type(self).__name__)
         self.session_id = session_id
 
-    def register(self, name, initial_data: Union[set, list, Mapping],
-                 path_to_file=directory, display=True, load=True, save=True,
-                 save_kwargs: dict = None, load_kwargs: dict = None):
+    def register(self, name, data, display=False, append_session_id=True):
+        """"""
+        if append_session_id:
+            name = name + self.session_id
+        else:
+            self.do_not_append_session_id.append(name + self.session_id)
+        if not display:
+            self.do_not_display.append(name)
+        self[name] = data
+
+    def register_file(self, name, initial_data: Union[set, list, Mapping],
+                      path_to_file=directory, display=True, load=True,
+                      save=True,
+                      save_kwargs: dict = None, load_kwargs: dict = None):
         """
         Register and load a data file. This file will be accessible to every
         AsyncWorker through context.data[name]
@@ -53,7 +66,6 @@ class DataManager(UserDict):
         if isinstance(initial_data, type):
             raise TypeError(
                 'initial_data argument must be an object, not type')
-        name = name + self.session_id
         self.logger.debug('registering "%s" -> "%s"', name, path_to_file)
         if not display:
             self.do_not_display.append(name)
@@ -77,7 +89,8 @@ class DataManager(UserDict):
                               (str(loaded_data)[:75] + '...') if len(
                                   str(loaded_data)) > 75 else str(
                                   loaded_data))
-        self[name] = initial_data
+        # self[name] = initial_data
+        self.register(name, initial_data, display, append_session_id=False)
         if loaded_data:
             self.load(initial_data, loaded_data, name)
 
@@ -118,6 +131,8 @@ class DataManager(UserDict):
                 'initial_data argument must be an object, not type')
         if append_session_id:
             name = name + self.session_id
+        else:
+            self.do_not_append_session_id.append(name + self.session_id)
         self.logger.debug('registering "%s" -> "%s"', name, path_to_file)
         if not display: self.do_not_display.append(name)
         if not save: self.do_not_save.append(name)
@@ -137,6 +152,8 @@ class DataManager(UserDict):
                                   (str(loaded_data)[:75] + '...') if len(
                                       str(loaded_data)) > 75 else str(
                                       loaded_data))
+            else:
+                loaded_data = initial_data
         self._create_cache(initial_data, loaded_data, name, directory)
         del loaded_data
         gc.collect()
@@ -177,6 +194,8 @@ class DataManager(UserDict):
 
     def get(self, k, optional=None):
         k = k + self.session_id
+        if k in self.do_not_append_session_id:
+            k = k.replace(self.session_id, '')
         return super().get(k, optional)
 
     def get_job_cache(self, job: 'Job', name: str):
