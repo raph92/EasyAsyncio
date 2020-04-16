@@ -36,7 +36,7 @@ class AutoSave:
                 self.logger.exception(e)
 
     def save(self):
-        self.logger.debug('autosaving...')
+        self.logger.debug('auto-saving...')
         self.context.data.save()
         self._last_saved = time()
 
