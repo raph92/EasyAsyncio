@@ -14,8 +14,8 @@ shutil.rmtree('./testfiles/')
 async def test_registration():
     d = [[f'test{i}', f'data{i}', f'row{i}'] for i in range(100)]
     headers = 'test,data,row'.split(',')
-    data.register('csv', d, './testfiles/test.csv',
-                  save_kwargs=dict(headers=headers))
+    data.register_file('csv', d, './testfiles/test.csv',
+                       save_kwargs=dict(headers=headers))
     data['csv'].append('8,9,10'.split(','))
     print(data['csv'])
     await data.save()
@@ -27,6 +27,6 @@ async def test_registration():
 
 @pytest.mark.asyncio
 async def test_loading():
-    data.register('csv', [], './testfiles/test.csv')
+    data.register_file('csv', [], './testfiles/test.csv')
     load = data.get('csv')
     assert 'test0,data0,row0' in load
