@@ -155,7 +155,6 @@ class Job(abc.ABC):
         before this class can access any property from **self.context**
         """
         self._initialize_variables(context)
-        self.context.jobs.add(self)
         self._initialize_config()
         self.status('initialized')
         self.log.info('loading cached items...')
@@ -384,6 +383,7 @@ class Job(abc.ABC):
                        new_input_data: str = ''):
         input_colored = helper.color_cyan('Input')
         queued_data = self.get_formatted_input(queued_data)
+        queued_data = self.formatting.format_input(queued_data)
         new_input_colored = ''
         if new_input_data:
             new_input_colored = helper.color_cyan('New Input:')
@@ -554,7 +554,7 @@ class Job(abc.ABC):
         per_second = self.context.stats[self.name] / elapsed_time
         return round((self.queue.qsize()) / per_second)
 
-    def get_data(self, name) -> Union[CacheSet, Index, Deque]:
+    def get_data(self, name) -> Union[dict, set, list]:
         return self.data.get(name)
 
     def diag_save(self, diag: 'Diagnostics', name=None):
@@ -565,7 +565,7 @@ class Job(abc.ABC):
         json = dict(content=diag.content, input_data=diag.input_data,
                     extras=diag.extras or {}, timestamp=time())
         path = f'./diagnostics/{self.name}/{name}{diag.extension}'
-        self.data.register(name, json, path, False, False)
+        self.data.register_file(name, json, path, False, False)
         self.log.info(
             'saved diagnostic info for %s -> %s' % (diag.input_data, path))
 
@@ -622,11 +622,14 @@ class ForwardQueuingJob(Job, abc.ABC):
                 self.status('paused')
                 await asyncio.sleep(10)
         await self.queue_successor(obj)
-        cached = self.successor.cache.get(helper.smart_hash(obj))
-        if not cached:
-            self.increment_stat()
+        if self.successor.cache_enabled:
+            cached = self.successor.cache.get(helper.smart_hash(obj))
+            if not cached:
+                self.increment_stat()
+            else:
+                self.increment_stat(name='uncached-%s' % self.result_name)
         else:
-            self.increment_stat(name='uncached-%s' % self.result_name)
+            self.increment_stat()
 
     async def queue_successor(self, data):
         await self.successor.add_to_queue(data)
@@ -679,7 +682,7 @@ class BackwardQueuingJob(Job, abc.ABC):
 class OutputJob(Job, abc.ABC):
     """This :class:`Job` will pass all completed items to an output file"""
 
-    def __init__(self, output: Optional[str] = '', **kwargs) -> None:
+    def __init__(self, output: Optional[str] = 'output', **kwargs) -> None:
         self.output = output
         super().__init__(**kwargs)
 
@@ -687,7 +690,7 @@ class OutputJob(Job, abc.ABC):
         super().initialize(context)
         self.log.info('starting with %s items in output',
                       len(self.get_data(self.output)))
-        if not self.outputs:
+        if self.outputs is None:
             raise Exception('output has not been registered with '
                             'DataManager#register or '
                             'DataManager#register_cache')
@@ -742,7 +745,7 @@ class Response(Exception):
 
 
 class RequeueResponse(Response):
-    """Processing did not return meaning data, and it will be added to the
+    """Processing did not return meaningful data, and it will be added to the
      queue for reprocessing."""
 
     def __init__(self, reason='requeued', *args: object) -> None:
