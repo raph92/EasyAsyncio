@@ -321,6 +321,15 @@ class Job(abc.ABC):
             self.increment_stat(name=ur.reason)
             self.queue.task_done()
             self._to_do_list.remove(queued_data)
+        except FutureResponse as fr:
+            self.increment_stat(name=fr.reason)
+            self.print_requeued(fr.reason, queued_data, fr.secondary_reason)
+            if fr.job and fr.obj:
+                if not isinstance(fr.job, Job):
+                    job = self.context.get_job(fr.job)
+                else:
+                    job = fr.job
+                await job.add_to_queue(fr.obj)
         except Response as r:
             self.print_failed(r.reason, queued_data)
             self.increment_stat(name=r.reason)
