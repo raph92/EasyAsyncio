@@ -292,7 +292,7 @@ class Job(abc.ABC):
             self.failed_inputs.add(queued_data)
             self.print_failed(fr.reason, queued_data, fr.extra_info)
             self.queue.task_done()
-            self._to_do_list.remove(queued_data)
+            await self.remove_from_todo(queued_data)
         except RequeueResponse as rr:
             if self.auto_requeue:
                 await self.queue.put(queued_data)
@@ -311,7 +311,7 @@ class Job(abc.ABC):
             self.log.debug('%s NoRequeue reason: %s', queued_data,
                            nrr.reason)
             self.queue.task_done()
-            self._to_do_list.remove(queued_data)
+            await self.remove_from_todo(queued_data)
         except UnknownResponse as ur:
             self.diag_save(ur.diagnostics)
             self.print_failed(ur.reason, queued_data)
@@ -319,7 +319,7 @@ class Job(abc.ABC):
                 self.log.info('❌%s', ur.extra_info)
             self.increment_stat(name=ur.reason)
             self.queue.task_done()
-            self._to_do_list.remove(queued_data)
+            await self.remove_from_todo(queued_data)
         except FutureResponse as fr:
             self.increment_stat(name=fr.reason)
             self.print_requeued(fr.reason, queued_data, fr.secondary_reason)
@@ -333,7 +333,7 @@ class Job(abc.ABC):
             self.print_failed(r.reason, queued_data)
             self.increment_stat(name=r.reason)
             self.queue.task_done()
-            self._to_do_list.remove(queued_data)
+            await self.remove_from_todo(queued_data)
         except CancelledError:
             raise
         except Exception:
@@ -342,16 +342,19 @@ class Job(abc.ABC):
                                dict(queued_data=queued_data))
             self.with_errors = True
             self.queue.task_done()
-            self._to_do_list.remove(queued_data)
+            await self.remove_from_todo(queued_data)
         else:
             self.queue.task_done()
-            self._to_do_list.remove(queued_data)
+            await self.remove_from_todo(queued_data)
             if self.auto_add_results:
                 await self._post_process(result)
             if self.cache_enabled and not from_cache:
                 self.index(queued_data, result)
             if self.print_successes:
                 self.print_success(queued_data, result, from_cache)
+
+    async def remove_from_todo(self, queued_data):
+        self._to_do_list.remove(queued_data)
 
     def print_success(self, input_data, result, from_cache=False):
         input_data = self.get_formatted_input(input_data)
@@ -554,7 +557,8 @@ class Job(abc.ABC):
         per_second = self.context.stats[self.name] / elapsed_time
         return round((self.queue.qsize()) / per_second)
 
-    def get_data(self, name) -> Union[dict, set, list]:
+    def get_data(self, name) -> Union[dict, set, list,
+                                      CacheSet, Index, EvictingIndex, Deque]:
         return self.data.get(name)
 
     def diag_save(self, diag: 'Diagnostics', name=None):
@@ -595,25 +599,6 @@ class ForwardQueuingJob(Job, abc.ABC):
     further processing
     """
 
-    def __init__(self, successor: Job, **kwargs) -> None:
-        """
-
-        Args:
-            successor (Job): The Job that will receive this Job's completed
-                data
-        """
-        super().__init__(**kwargs)
-        self.successor = successor
-        self.successor.predecessor = self
-        self.info['precedes'] = successor
-        successor.info['supersedes'] = self
-
-    def initialize(self, context: Context):
-        if not self.successor.initialized:
-            raise Exception('%s has not been initialized in '
-                            'JobManager#add_jobs' % self.successor)
-        super().initialize(context)
-
     async def on_item_completed(self, obj):
         # pause if successor has a full queue
         if self.successor.max_queue_size:
@@ -646,25 +631,6 @@ class BackwardQueuingJob(Job, abc.ABC):
     further processing
     """
 
-    def __init__(self, predecessor: Job, **kwargs) -> None:
-        """
-
-        Args:
-            predecessor (Job, Optional): The queue that passes completed data
-                to this Job
-            **kwargs:
-        """
-        super().__init__(**kwargs)
-        self.predecessor = predecessor
-        self.predecessor.successor = self
-        self.info['supersedes'] = predecessor
-
-    def initialize(self, context: Context):
-        if not self.predecessor.initialized:
-            raise Exception('%s has not been initialized in '
-                            'JobManager#add_jobs' % self.predecessor)
-        super().initialize(context)
-
     async def on_item_completed(self, obj):
         if self.predecessor and self.predecessor.max_queue_size:
             while (self.predecessor.queue.qsize()
@@ -675,7 +641,7 @@ class BackwardQueuingJob(Job, abc.ABC):
         self.increment_stat(name=self.result_name)
 
     async def queue_predecessor(self, data):
-        await self.predecessor.queue.put(data)
+        await self.predecessor.add_to_queue(data)
 
 
 class OutputJob(Job, abc.ABC):
