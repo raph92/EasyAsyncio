@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='easyasyncio',
-    version='16.1.0',
+    version='16.1.1',
     packages=['easyasyncio'],
     url='https://github.com/RaphaelNanje/easyasyncio.git',
     license='MIT',
@@ -14,7 +14,7 @@ setup(
         'asciimatics',
         'diskcache',
         'easyfilemanager @ https://github.com'
-        '/RaphaelNanje/easyfilemanager/archive/v3.1.1.tar.gz',
+        '/RaphaelNanje/easyfilemanager/archive/v3.1.2.tar.gz',
         'uvloop',
         'click',
         'attrs'

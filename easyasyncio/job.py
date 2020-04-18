@@ -654,7 +654,6 @@ class BackwardQueuingJob(Job, abc.ABC):
                 to this Job
             **kwargs:
         """
-        kwargs.setdefault('cache_queued_items', True)
         super().__init__(**kwargs)
         self.predecessor = predecessor
         self.predecessor.successor = self
@@ -788,7 +787,7 @@ class NoRequeueResponse(Response):
     session. However it will be added on the next run."""
 
     def __init__(self, reason='temporarily-failed', *args: object) -> None:
-        super().__init__(reason, *args)
+        super().__init__(str(reason), *args)
 
 
 class UnknownResponse(Response):
