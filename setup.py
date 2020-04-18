@@ -13,8 +13,8 @@ setup(
         'aiohttp==3.6.2',
         'asciimatics',
         'diskcache',
-        'easyfilemanager @ https://github.com'
-        '/RaphaelNanje/easyfilemanager/archive/v3.1.2.tar.gz',
+        'easyfilemanager @ https://github.com/RaphaelNanje/easyfilemanager/'
+        'archive/v3.1.2.tar.gz',
         'uvloop',
         'click',
         'attrs'
