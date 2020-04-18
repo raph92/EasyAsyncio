@@ -102,9 +102,13 @@ class JobManager(Thread):
             self.logger.info('Exiting... Please wait')
 
     def add_jobs(self, *jobs: 'Job'):
-        for job in jobs:
+        for index, job in enumerate(jobs):
             if not isinstance(job, Job):
                 raise TypeError('%s is not a Job' % type(job))
+            if index > 0:
+                job.predecessor = jobs[index - 1]
+            if index < len(jobs) - 1:
+                job.successor = jobs[index + 1]
             job.initialize(self.context)
             self.context.jobs.append(job)
             t = self.loop.create_task(job.run())

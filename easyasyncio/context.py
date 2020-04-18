@@ -44,4 +44,4 @@ class Context:
         return self.manager
 
     def get_job(self, index: int):
-        return self.jobs[::-1][index - 1]
+        return self.jobs[index - 1]
