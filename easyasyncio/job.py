@@ -6,6 +6,7 @@ from abc import abstractmethod
 from asyncio import (AbstractEventLoop, Semaphore, Future, Queue,
                      QueueFull, CancelledError)
 from collections import deque, Counter
+from numbers import Number
 from time import time
 from typing import (Set, Any, MutableMapping, TYPE_CHECKING, Dict,
                     Optional, Union)
@@ -15,6 +16,7 @@ from aiohttp import ServerDisconnectedError
 from diskcache import Deque, Index
 
 from . import helper
+from .averagetracker import AverageTracker
 from .cachetypes import CacheSet, EvictingIndex
 from .context import Context
 
