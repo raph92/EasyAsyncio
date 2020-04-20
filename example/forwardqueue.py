@@ -7,9 +7,6 @@ from easyasyncio.job import ForwardQueuingJob
 
 class AddOneJob(ForwardQueuingJob):
 
-    def __init__(self, successor: Job, **kwargs) -> None:
-        super().__init__(successor, **kwargs)
-
     async def do_work(self, num):
         # do something meaningful here
         await asyncio.sleep(0.01)
@@ -19,9 +16,6 @@ class AddOneJob(ForwardQueuingJob):
 
 class AddTwoJob(ForwardQueuingJob):
 
-    def __init__(self, successor: Job, **kwargs) -> None:
-        super().__init__(successor, **kwargs)
-
     async def do_work(self, num):
         # do something meaningful here
         await asyncio.sleep(0.01)
@@ -30,9 +24,6 @@ class AddTwoJob(ForwardQueuingJob):
 
 
 class TimesTwoJob(ForwardQueuingJob):
-
-    def __init__(self, successor: Job, **kwargs) -> None:
-        super().__init__(successor, **kwargs)
 
     async def do_work(self, num):
         # do something meaningful here
@@ -56,20 +47,16 @@ class PrintJob(Job):
 
 manager = JobManager()
 
-print_job = PrintJob(max_concurrent=15,
-                     max_queue_size=5, log_level=logging.DEBUG,
+print_job = PrintJob(max_concurrent=15, log_level=logging.DEBUG,
                      print_successes=False)
-times_two = TimesTwoJob(print_job,
-                        input_data=[],
+times_two = TimesTwoJob(input_data=[],
                         max_concurrent=15, log_level=logging.DEBUG)
-add_two = AddTwoJob(times_two,
-                    input_data=[],
+add_two = AddTwoJob(input_data=[],
                     max_concurrent=15, log_level=logging.DEBUG)
-add_one = AddOneJob(add_two,
-                    input_data=range(1, 50 + 1),
+add_one = AddOneJob(input_data=range(1, 50 + 1),
                     max_concurrent=15, log_level=logging.DEBUG)
 
-manager.add_jobs(print_job, times_two, add_two, add_one)
+manager.add_jobs(add_one, add_two, times_two, print_job)
 manager.start()
 
 # manager.start_graphics()

@@ -623,7 +623,7 @@ class ForwardQueuingJob(Job, abc.ABC):
             while (self.successor.queue.qsize()
                    >= self.successor.max_queue_size):
                 self.status('paused')
-                await asyncio.sleep(10)
+                await asyncio.sleep(1)
         await self.queue_successor(obj)
         if self.successor.cache_enabled:
             cached = self.successor.cache.get(helper.smart_hash(obj))
@@ -654,7 +654,7 @@ class BackwardQueuingJob(Job, abc.ABC):
             while (self.predecessor.queue.qsize()
                    >= self.predecessor.max_queue_size):
                 self.status('paused')
-                await asyncio.sleep(10)
+                await asyncio.sleep(1)
         await self.queue_predecessor(obj)
         self.increment_stat(name=self.result_name)
 

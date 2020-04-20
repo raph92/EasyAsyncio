@@ -137,3 +137,6 @@ testfiles/
 cache.db*
 output*
 /pypy-env/
+/example/diagnostics/
+/example/data/
+/tests/test_attrs.py
