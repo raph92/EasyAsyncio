@@ -105,6 +105,8 @@ class Job(abc.ABC):
         self._to_do_list = []
         self._in_progress = 0
         self.initialized = False
+        self.averages = AverageTracker()
+        self.averages.track('process_time', 'avg_process_time')
         if len(self.__class__.__name__) > 15:
             self.log.warning(
                 '[WARNING] Class names greater than 15 characters '
@@ -556,6 +558,14 @@ class Job(abc.ABC):
         elapsed_time = self.context.stats.elapsed_time
         per_second = self.context.stats[self.name] / elapsed_time
         return round((self.queue.qsize()) / per_second)
+
+    def track_averages(self, name: str, value: Number):
+        self.averages.add(name, value)
+        if name in self.averages.total_names:
+            self.context.stats[self.averages.total_names[name]] += value
+
+    def update_stats(self):
+        self.info.update(self.averages.get_stats())
 
     def get_data(self, name) -> Union[dict, set, list,
                                       CacheSet, Index, EvictingIndex, Deque]:
