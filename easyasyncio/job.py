@@ -579,6 +579,7 @@ class Job(abc.ABC):
 
     @staticmethod
     def get_formatted_input(obj) -> str:
+        """Meant to be overridden"""
         return str(obj)
 
     @property
