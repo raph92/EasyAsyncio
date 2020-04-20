@@ -252,110 +252,117 @@ class Job(abc.ABC):
             from_cache = False
             self.status('waiting on queue')
             queued_data = await self.queue.get()
+            self.log.debug('[worker%s] retrieved queued data "%s"',
+                           num, queued_data)
+            self.status('working')
+            self._in_progress += 1
             try:
-                self._in_progress += 1
-                self.log.debug('[worker%s] retrieved queued data "%s"',
-                               num, queued_data)
-                self.status('working')
                 if isinstance(queued_data, QueueLooped):
                     self.queue_looped = True
                     continue
-                if isinstance(queued_data, Terminate):
-                    break
-                if queued_data in self.failed_inputs:
-                    continue
+                if isinstance(queued_data, Terminate): break
+                if queued_data in self.failed_inputs: continue
                 if self.cache_enabled:
                     result = self.deindex(queued_data)
                     if result:
                         from_cache = True
+                t1 = time()
                 try:
-                    await self._post_do_work(from_cache, queued_data, result)
+                    if result is None:
+                        result = await self.do_work(queued_data)
                 except CancelledError:
-                    self.log.debug('work on %s has been cancelled',
-                                   queued_data)
+                    self.log.debug('work on %s cancelled', queued_data)
                     break
-                finally:
-                    if not from_cache:
-                        self.increment_stat(name='attempted')
+                except Exception as e:
+                    await self.handle_exception(
+                        ProcessError(e, queued_data))
+                else:
+                    await self.post_do_work(from_cache, queued_data, result)
+                self.track_averages('process_time', time() - t1)
+                if not from_cache:
+                    self.increment_stat(name='attempted')
+
+                self.update_stats()
             finally:
                 self._in_progress -= 1
 
         self.info['workers'] -= 1
         self.log.debug('[worker%s] terminated', num)
 
-    async def _post_do_work(self, from_cache, queued_data, result):
-        # noinspection PyBroadException
-        try:
-            result = result if result is not None else await self.do_work(
-                queued_data)
-        except ServerDisconnectedError:
-            self.log.error('server disconnected')
-            await self.queue.put(queued_data)
-        except FailResponse as fr:
-            self.increment_stat(name=fr.reason)
-            self.failed_inputs.add(queued_data)
-            self.print_failed(fr.reason, queued_data, fr.extra_info)
-            self.queue.task_done()
-            await self.remove_from_todo(queued_data)
-        except RequeueResponse as rr:
-            if self.auto_requeue:
-                await self.queue.put(queued_data)
-                self.increment_stat(name=rr.reason)
-            self.print_requeued(rr.reason, queued_data)
-        except ValidationRequeueResponse as vrr:
-            await self.queue.put(vrr.new_input)
-            self.increment_stat(name=vrr.reason)
-            self.print_requeued(vrr.reason, queued_data, vrr.new_input)
-        except NoRequeueResponse as nrr:
-            self.increment_stat(name=nrr.reason)
+    async def post_do_work(self, from_cache, queued_data, result):
+        self.queue.task_done()
+        await self.remove_from_todo(queued_data)
+        if self.auto_add_results:
+            await self._post_process(result)
+        if self.cache_enabled and not from_cache:
+            self.index(queued_data, result)
+        if self.print_successes:
+            self.print_success(queued_data, result,
+                               from_cache)
 
-            self.print_failed(nrr.reason, queued_data)
+    async def handle_exception(self, e: 'ProcessError'):
+        if isinstance(e.exception, ServerDisconnectedError):
+            self.log.error('server disconnected')
+            await self.queue.put(e.input_data)
+        elif isinstance(e.exception, FailResponse):
+            self.increment_stat(name=e.exception.reason)
+            self.failed_inputs.add(e.input_data)
+            self.print_failed(e.exception.reason, e.input_data,
+                              e.exception.reason)
+            self.queue.task_done()
+            await self.remove_from_todo(e.input_data)
+        elif isinstance(e.exception, RequeueResponse):
+            if self.auto_requeue:
+                await self.queue.put(e.input_data)
+                self.increment_stat(name=e.exception.reason)
+            self.print_requeued(e.exception.reason, e.input_data)
+        elif isinstance(e.exception, ValidationRequeueResponse):
+            await self.queue.put(e.exception.reason)
+            self.increment_stat(name=e.exception.reason)
+            self.print_requeued(e.exception.reason, e.input_data,
+                                e.exception.new_input)
+        elif isinstance(e.exception, NoRequeueResponse):
+            self.increment_stat(name=e.exception.reason)
+
+            self.print_failed(e.exception.reason, e.input_data)
             # self.log.info(x_mark + '[No Requeue][%s] %s', nrr.reason,
-            #               queued_data)
-            self.log.debug('%s NoRequeue reason: %s', queued_data,
-                           nrr.reason)
+            #               e.input_data)
+            self.log.debug('%s NoRequeue reason: %s', e.input_data,
+                           e.exception.reason)
             self.queue.task_done()
-            await self.remove_from_todo(queued_data)
-        except UnknownResponse as ur:
-            self.diag_save(ur.diagnostics)
-            self.print_failed(ur.reason, queued_data)
-            if ur.extra_info:
-                self.log.info('❌%s', ur.extra_info)
-            self.increment_stat(name=ur.reason)
+            await self.remove_from_todo(e.input_data)
+        elif isinstance(e.exception, UnknownResponse):
+            self.diag_save(e.exception.diagnostics)
+            self.print_failed(e.exception.reason, e.input_data)
+            if e.exception.extra_info:
+                self.log.info('❌%s', e.exception.extra_info)
+            self.increment_stat(name=e.exception.reason)
             self.queue.task_done()
-            await self.remove_from_todo(queued_data)
-        except FutureResponse as fr:
-            self.increment_stat(name=fr.reason)
-            self.print_requeued(fr.reason, queued_data, fr.secondary_reason)
-            if fr.job and fr.obj:
-                if not isinstance(fr.job, Job):
-                    job = self.context.get_job(fr.job)
+            await self.remove_from_todo(e.input_data)
+        elif isinstance(e.exception, FutureResponse):
+            self.increment_stat(name=e.exception.reason)
+            self.print_requeued(e.exception.reason, e.input_data,
+                                e.exception.secondary_reason)
+            if e.exception.job and e.exception.obj:
+                if not isinstance(e.exception.job, Job):
+                    job = self.context.get_job(e.exception.job)
                 else:
-                    job = fr.job
-                await job.add_to_queue(fr.obj)
-        except Response as r:
-            self.print_failed(r.reason, queued_data)
-            self.increment_stat(name=r.reason)
+                    job = e.exception.job
+                await job.add_to_queue(e.exception.obj)
+        elif isinstance(e.exception, Response):
+            self.print_failed(e.exception.reason, e.input_data)
+            self.increment_stat(name=e.exception.reason)
             self.queue.task_done()
-            await self.remove_from_todo(queued_data)
-        except CancelledError:
-            raise
-        except Exception:
+            await self.remove_from_todo(e.input_data)
+        elif isinstance(e.exception, CancelledError):
+            raise CancelledError()
+        else:
             self.increment_stat(name='uncaught-exceptions')
             self.log.exception('worker uncaught exception: %s',
-                               dict(queued_data=queued_data))
+                               dict(queued_data=e.input_data))
             self.with_errors = True
             self.queue.task_done()
-            await self.remove_from_todo(queued_data)
-        else:
-            self.queue.task_done()
-            await self.remove_from_todo(queued_data)
-            if self.auto_add_results:
-                await self._post_process(result)
-            if self.cache_enabled and not from_cache:
-                self.index(queued_data, result)
-            if self.print_successes:
-                self.print_success(queued_data, result, from_cache)
+            await self.remove_from_todo(e.input_data)
 
     async def remove_from_todo(self, queued_data):
         self._to_do_list.remove(queued_data)
