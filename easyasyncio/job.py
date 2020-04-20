@@ -367,9 +367,10 @@ class Job(abc.ABC):
     async def remove_from_todo(self, queued_data):
         self._to_do_list.remove(queued_data)
 
-    def print_success(self, input_data, result, from_cache=False):
-        input_data = self.get_formatted_input(input_data)
-        input_data = self.formatting.format_input(input_data)
+    def print_success(self, input_data: object, result: object,
+                      from_cache=False):
+        formatted_input = self.get_formatted_input(input_data)
+        formatted_input = self.formatting.format_input(formatted_input)
         output = self.get_formatted_output(result)
         # self.formatting.update_result_justify(len(output))
 
@@ -381,8 +382,9 @@ class Job(abc.ABC):
         self.formatting.update_success_string_length(len(success_colored))
 
         input_colored = helper.color_cyan('Input')
-        input_data_formatted = input_data.ljust(self.formatting.input_justify)
-        self.formatting.update_input_justify(len(input_data))
+        input_data_formatted = formatted_input.ljust(
+            self.formatting.input_justify)
+        self.formatting.update_input_justify(len(formatted_input))
 
         check_mark = (helper.check_mark if not from_cache
                       else helper.cache_check_mark)
@@ -393,7 +395,7 @@ class Job(abc.ABC):
                       helper.color_cyan('Output'),
                       output)
 
-    def print_requeued(self, reason, queued_data: str,
+    def print_requeued(self, reason: str, queued_data: object,
                        new_input_data: str = ''):
         input_colored = helper.color_cyan('Input')
         queued_data = self.get_formatted_input(queued_data)
@@ -420,7 +422,7 @@ class Job(abc.ABC):
         )
         self.log.info(formatted)
 
-    def print_failed(self, reason, queued_data: str, extra_info=None):
+    def print_failed(self, reason: str, queued_data: object, extra_info=None):
         failed_string = helper.color_red('[%s]' % reason.capitalize())
         self.formatting.update_fail_string_length(len(failed_string))
 
@@ -593,18 +595,15 @@ class Job(abc.ABC):
             'saved diagnostic info for %s -> %s' % (diag.input_data, path))
 
     def get_formatted_output(self, obj) -> str:
-        return (f'{len(obj)} {self.result_name}'
-                if isinstance(obj, (list, set, dict)) else str(obj))
+        if isinstance(obj, (list, set, dict)):
+            return f'{len(obj)} {self.result_name}'
+        else:
+            return str(obj)
 
     @staticmethod
     def get_formatted_input(obj) -> str:
         """Meant to be overridden"""
         return str(obj)
-
-    @property
-    def idle(self):
-        return self.queue.qsize() == 0 and self.info.get(
-            'status') == 'waiting on queue'
 
     def __repr__(self):
         return self.name
@@ -782,6 +781,15 @@ class UnknownResponse(Response):
         super().__init__(reason, *args)
         self.diagnostics = diagnostics
         self.extra_info = extra_info
+
+
+class ProcessError(Exception):
+
+    def __init__(self, exception: Exception, input_data: object,
+                 *args: object) -> None:
+        super().__init__(*args)
+        self.exception = exception
+        self.input_data = input_data
 
 
 @attr.s(auto_attribs=True)
