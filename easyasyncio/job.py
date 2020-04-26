@@ -365,7 +365,10 @@ class Job(abc.ABC):
             await self.remove_from_todo(e.input_data)
 
     async def remove_from_todo(self, queued_data):
-        self._to_do_list.remove(queued_data)
+        try:
+            self._to_do_list.remove(queued_data)
+        except ValueError:
+            pass
 
     def print_success(self, input_data: object, result: object,
                       from_cache=False):
