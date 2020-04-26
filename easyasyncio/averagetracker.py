@@ -1,9 +1,10 @@
+import os
 from collections import defaultdict, deque, Counter
 from numbers import Number
 from typing import Dict
 
 
-class AverageTracker(defaultdict, Dict[str, list]):
+class AverageTracker(defaultdict, Dict[str, deque]):
 
     def __init__(self) -> None:
         defaultdict.__init__(self, self._ADeque)
@@ -23,13 +24,14 @@ class AverageTracker(defaultdict, Dict[str, list]):
             self.totals[name] += value
 
     def track(self, name: str, display_name: str, total_name: str = None):
+
         if total_name:
             self.total_names[name] = total_name
         if display_name:
             self.display_names[name] = display_name
 
     def get_average(self, name: str) -> str:
-        return '%.2f' % (sum(self.get(name)) / len(self[name]))
+        return '%.5f' % (sum(self.get(name)) / len(self[name]))
 
     def get_stats(self):
         d = {}
@@ -44,13 +46,13 @@ class AverageTracker(defaultdict, Dict[str, list]):
     def get_total(self, key) -> str:
         value = self.totals[key]
 
-        if not isinstance(value, int): return '%.2f' % value
+        if not isinstance(value, int): return '%.5f' % value
         else: return str(int)
 
     class _ADeque(deque):
 
         def __init__(self) -> None:
-            super().__init__([], 1000)
+            super().__init__([], int(os.getenv('AVERAGE_LIST_MAX', 100000)))
 
 
 if __name__ == '__main__':

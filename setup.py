@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='easyasyncio',
-    version='17.1.1',
+    version='18.0.0',
     packages=['easyasyncio'],
     url='https://github.com/RaphaelNanje/easyasyncio.git',
     license='MIT',
@@ -17,7 +17,8 @@ setup(
         'archive/v3.1.2.tar.gz',
         'uvloop',
         'click',
-        'attrs'
+        'attrs',
+        'python-dotenv'
     ],
     python_requires='~=3.6',
     entry_points={

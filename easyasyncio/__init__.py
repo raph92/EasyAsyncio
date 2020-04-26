@@ -1,7 +1,10 @@
 import logging
 
-logger = logging.getLogger('easyasyncio')
+from dotenv import load_dotenv
 
+load_dotenv()
+
+logger = logging.getLogger('easyasyncio')
 from . import log
 from .job import Job
 from .autosave import AutoSave

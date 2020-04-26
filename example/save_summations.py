@@ -3,7 +3,8 @@ import random
 import sys
 
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
-from easyasyncio.job import OutputJob, Diagnostics, UnknownResponse
+from easyasyncio.job import OutputJob, Diagnostics
+from easyasyncio.responses import UnknownResponse
 from easyasyncio import JobManager
 
 

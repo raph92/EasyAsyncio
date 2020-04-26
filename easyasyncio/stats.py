@@ -16,9 +16,8 @@ class Stats(typing.Counter[int]):
     """keep track of various stats"""
     start_time = time.time()
     _end_time = None
-    data_found = 0
     initial_data_count = 0
-    do_not_calculate_per_second = set()
+    do_not_calculate_per_second = []
 
     def __init__(self, context: 'Context') -> None:
         super().__init__()
@@ -33,7 +32,7 @@ class Stats(typing.Counter[int]):
     def set(self, name: str, value: int, calculate_per_second=False):
         self[name] = value
         if not calculate_per_second:
-            self.do_not_calculate_per_second.add(name)
+            self.do_not_calculate_per_second.append(name)
 
     def get_count_strings(self) -> str:
         string = '\n'

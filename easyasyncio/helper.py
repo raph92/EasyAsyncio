@@ -56,20 +56,20 @@ reload_mark = '\N{Clockwise Rightwards and Leftwards Open Circle Arrows}'
 
 
 def color_cyan(skk):
-    return "\033[96m {}\033[00m".format(skk)
+    return "\033[96m{}\033[00m".format(skk)
 
 
 def color_blue(skk):
-    return "\033[34m {}\033[00m".format(skk)
+    return "\033[34m{}\033[00m".format(skk)
 
 
 def color_green(skk):
-    return "\033[92m {}\033[00m".format(skk)
+    return "\033[92m{}\033[00m".format(skk)
 
 
 def color_orange(skk):
-    return "\033[33m {}\033[00m".format(skk)
+    return "\033[33m{}\033[00m".format(skk)
 
 
 def color_red(skk):
-    return "\033[91m {}\033[00m".format(skk)
+    return "\033[91m{}\033[00m".format(skk)
