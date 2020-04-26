@@ -177,7 +177,7 @@ class DataManager(UserDict):
             self[name] = Deque(loaded_data or [], path)
             self.logger.debug('creating new Deque for %s', name)
         elif isinstance(initial_data, dict):
-            self[name] = EvictingIndex(path, **(loaded_data or {}))
+            self[name] = Index(path, **(loaded_data or {}))
             self.logger.debug('creating new Index for %s', name)
 
     def load(self, data, loaded_data, name):
