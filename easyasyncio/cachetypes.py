@@ -81,10 +81,6 @@ class EvictingIndex(Index):
         if not isinstance(obj, dict):
             self.pop(key)
             raise KeyError(key)
-        try:
-            self._check_expired(key, obj)
-        except ExpiredError:
-            raise KeyError(key)
 
         return obj.get('item')
 
