@@ -71,7 +71,6 @@ class CacheSet:
 class EvictingIndex(Index):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.default_expiration = 86_400 * 2
 
     def set(self, key, value, expire):
         self.__setitem__(key, value, expire)
@@ -88,17 +87,17 @@ class EvictingIndex(Index):
         if not super().__contains__(key):
             return False
         obj = self.get(key)
-        try:
-            self._check_expired(key, obj)
-        except ExpiredError:
-            return False
+        # try:
+        #     self._check_expired(key, obj)
+        # except ExpiredError:
+        #     return False
         return True
 
     def __setitem__(self, key, value, expire=0):
         if not isinstance(expire, Number):
             raise TypeError('expire must be a number')
         value = dict(item=value, time_added=time(),
-                     expire=expire or self.default_expiration)
+                     expire=expire)
         super().__setitem__(key, value)
 
     def _check_expired(self, key, obj: dict):
