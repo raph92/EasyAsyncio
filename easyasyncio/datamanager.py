@@ -170,14 +170,13 @@ class DataManager(UserDict):
         else: path_name = name
         path = os.path.join('cache', directory, path_name)
         if isinstance(initial_data, set):
-            if loaded_data: loaded_data = _numericize(loaded_data)
-            self[name] = CacheSet(loaded_data or set(), path)
+            self[name] = CacheSet(loaded_data or initial_data, path)
             self.logger.debug('creating new CacheSet for %s', name)
         elif isinstance(initial_data, list):
-            self[name] = Deque(loaded_data or [], path)
+            self[name] = Deque(loaded_data or initial_data, path)
             self.logger.debug('creating new Deque for %s', name)
         elif isinstance(initial_data, dict):
-            self[name] = EvictingIndex(path, **(loaded_data or {}))
+            self[name] = EvictingIndex(path, **(loaded_data or initial_data))
             self.logger.debug('creating new Index for %s', name)
 
     def load(self, data, loaded_data, name):

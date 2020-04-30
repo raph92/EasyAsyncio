@@ -29,12 +29,10 @@ class Job(abc.ABC):
     max_concurrent: int
     context: Context
     loop: AbstractEventLoop
-    sem: Semaphore
     end_time: float
     input_data: Any
     fail_cache_name = 'failed'
     data: 'DataManager'
-    primary = False
     formatting = helper.LogFormatting()
     min_idle_time_before_finish = 10
 
@@ -170,8 +168,8 @@ class Job(abc.ABC):
 
     def _initialize_config(self):
         self.context.queues.new(self.name)
-        self.sem = Semaphore(self.max_concurrent, loop=self.loop)
-        self.log.addHandler(JobLogHandler(self, level=self.log_level))
+        if self.context.manager.showing_graphics:
+            self.log.addHandler(JobLogHandler(self, level=self.log_level))
 
     def _initialize_variables(self, context):
         self.context = context
