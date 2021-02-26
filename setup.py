@@ -10,7 +10,7 @@ setup(
     author_email='rtnanje@gmail.com',
     description='A library that makes asyncio simple',
     install_requires=[
-        'aiohttp==3.6.2',
+        'aiohttp==3.7.4',
         'asciimatics',
         'diskcache',
         'easyfilemanager @ https://github.com/RaphaelNanje/easyfilemanager/'
